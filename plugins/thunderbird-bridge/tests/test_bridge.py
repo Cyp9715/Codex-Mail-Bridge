@@ -13,7 +13,7 @@ PLUGIN = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLUGIN / "server"))
 sys.path.insert(0, str(PLUGIN / "tests"))
 import accounts
-import mail_bridge as bridge
+import bridge as bridge
 from create_demo import create_demo
 
 
@@ -40,7 +40,7 @@ class BridgeTests(unittest.TestCase):
     def test_discovery_and_explicit_selection(self):
         self.assertEqual(len(bridge.discover_profiles()["profiles"]), 1)
         self.assertEqual(len(bridge.discover_accounts(self.profile["id"])["accounts"]), 3)
-        with self.assertRaises(accounts.MailError):
+        with self.assertRaises(accounts.BridgeError):
             accounts.select_account(self.profile["id"], "account1")
         self.select()
         self.assertEqual(bridge.status()["account"], "demo@example.test")
@@ -50,9 +50,9 @@ class BridgeTests(unittest.TestCase):
         self.select()
         self.assertEqual({m["id"] for m in bridge.search()["messages"]}, {101, 102, 103})
         for mid in (201, 202, 203, 301):
-            with self.assertRaises(accounts.MailError):
+            with self.assertRaises(accounts.BridgeError):
                 bridge.read(mid)
-        with self.assertRaises(accounts.MailError):
+        with self.assertRaises(accounts.BridgeError):
             bridge.search(folder_id=3)
 
     def test_shared_thread_does_not_leak(self):
@@ -86,7 +86,7 @@ class BridgeTests(unittest.TestCase):
     def test_pop3_and_account_switch(self):
         self.select("account3")
         self.assertEqual(bridge.search()["messages"][0]["id"], 301)
-        with self.assertRaises(accounts.MailError):
+        with self.assertRaises(accounts.BridgeError):
             bridge.read(101)
 
     def test_changed_identity_fails_closed(self):
@@ -108,6 +108,51 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn(str(self.profile["path"]), saved)
         self.assertEqual(set(json.loads(saved)), {"version", "profile_id", "account_id", "fingerprint"})
 
+    def previous_selection(self):
+        self.select()
+        saved = accounts.settings_path().read_bytes()
+        storage = Path(self.temp.name) / "application-settings"
+        previous = storage / "CypSoft/ThunderbirdMailBridge/settings.json"
+        previous.parent.mkdir(parents=True)
+        previous.write_bytes(saved)
+        return storage, previous
+
+    def test_previous_selection_survives_rename(self):
+        storage, previous = self.previous_selection()
+        saved = previous.read_bytes()
+        with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
+            os.environ.pop("THUNDERBIRD_BRIDGE_SETTINGS", None)
+            os.environ["LOCALAPPDATA"] = str(storage)
+            current = storage / "CypSoft/ThunderbirdBridge/settings.json"
+            self.assertEqual(accounts.settings_path(), current)
+            self.assertEqual(bridge.status()["account"], "demo@example.test")
+            self.assertEqual({m["id"] for m in bridge.search()["messages"]}, {101, 102, 103})
+            self.assertFalse(current.exists())  # Read-only tools do not move settings.
+            self.select("account2")
+            self.assertTrue(current.is_file())
+            self.assertEqual(bridge.status()["account"], "other@example.test")
+            self.assertEqual(previous.read_bytes(), saved)
+
+    def test_invalid_current_selection_does_not_use_previous(self):
+        storage, _ = self.previous_selection()
+        with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
+            os.environ.pop("THUNDERBIRD_BRIDGE_SETTINGS", None)
+            os.environ["LOCALAPPDATA"] = str(storage)
+            current = accounts.settings_path()
+            current.parent.mkdir(parents=True)
+            current.write_text("{}", encoding="utf-8")
+            self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
+
+    def test_explicit_settings_override_never_uses_previous(self):
+        storage, _ = self.previous_selection()
+        with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
+            os.environ["LOCALAPPDATA"] = str(storage)
+            isolated = Path(self.temp.name) / "isolated/settings.json"
+            os.environ["THUNDERBIRD_BRIDGE_SETTINGS"] = str(isolated)
+            self.assertFalse(bridge.status()["configured"])
+            self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
+            self.assertFalse(isolated.exists())
+
     def test_invalid_inputs(self):
         self.select()
         for name, args in [("thunderbird_search", {"limit": True}), ("thunderbird_search", {"field": "bad"}),
@@ -115,7 +160,7 @@ class BridgeTests(unittest.TestCase):
                            ("thunderbird_select_account", {"profile_id": self.profile["id"], "account_id": "account1", "confirm": "true"}),
                            ("thunderbird_search", {"query": "x" * 401}), ("thunderbird_search", {"sql": "SELECT 1"})]:
             self.assertTrue(bridge.call_tool(name, args)["isError"])
-        with self.assertRaises(accounts.MailError):
+        with self.assertRaises(accounts.BridgeError):
             bridge.search(after="2026-02-31")
 
     def test_no_mail_write_or_attachment_tools(self):
@@ -144,6 +189,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         replies = [json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual([r["id"] for r in replies], [1, 2, 3])
+        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "thunderbird-bridge", "version": "0.2.0"})
         self.assertEqual(len(replies[1]["result"]["tools"]), 7)
         hits = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(hits["messages"][0]["id"], 101)

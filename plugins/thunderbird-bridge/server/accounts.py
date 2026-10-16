@@ -14,7 +14,7 @@ import time
 from urllib.parse import unquote, urlsplit
 
 
-class MailError(Exception):
+class BridgeError(Exception):
     pass
 
 
@@ -28,7 +28,17 @@ def settings_path():
         root = Path.home() / "Library/Application Support"
     else:
         root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return root / "CypSoft/ThunderbirdMailBridge/settings.json"
+    return root / "CypSoft/ThunderbirdBridge/settings.json"
+
+
+def selection_path():
+    """Read a prior selection without changing files during a read-only tool call."""
+    path = settings_path()
+    if os.environ.get("THUNDERBIRD_BRIDGE_SETTINGS") or path.exists():
+        return path
+    # Previous releases stored the same opaque selection outside the package.
+    previous = path.parent.parent / "ThunderbirdMailBridge/settings.json"
+    return previous if previous.is_file() else path
 
 
 def profile_roots():
@@ -73,7 +83,7 @@ def profile_by_id(profile_id):
     for profile in profiles():
         if profile["id"] == profile_id:
             return profile
-    raise MailError("Thunderbird profile was not found. Run thunderbird_profiles again.")
+    raise BridgeError("Thunderbird profile was not found. Run thunderbird_profiles again.")
 
 
 def read_accounts(profile):
@@ -115,28 +125,28 @@ def account_by_id(profile, account_id):
     for account in read_accounts(profile):
         if account["id"] == account_id:
             return account
-    raise MailError("Selected account is unavailable or unsupported. IMAP and POP3 identities are supported.")
+    raise BridgeError("Selected account is unavailable or unsupported. IMAP and POP3 identities are supported.")
 
 
 def selection():
     try:
-        saved = json.loads(settings_path().read_text(encoding="utf-8"))
+        saved = json.loads(selection_path().read_text(encoding="utf-8"))
         if not isinstance(saved, dict) or saved.get("version") != 1:
-            raise MailError("Unsupported local selection file. Select an account again.")
+            raise BridgeError("Unsupported local selection file. Select an account again.")
         profile = profile_by_id(saved["profile_id"])
         account = account_by_id(profile, saved["account_id"])
         if saved["fingerprint"] != account["fingerprint"]:
-            raise MailError("Account identity changed. Select it again before accessing mail.")
+            raise BridgeError("Account identity changed. Select it again before accessing mail.")
         return profile, account
     except FileNotFoundError:
-        raise MailError("No account selected. Discover profiles/accounts and explicitly select one first.") from None
+        raise BridgeError("No account selected. Discover profiles/accounts and explicitly select one first.") from None
     except (KeyError, TypeError, json.JSONDecodeError):
-        raise MailError("Local selection file is invalid. Select an account again.") from None
+        raise BridgeError("Local selection file is invalid. Select an account again.") from None
 
 
 def select_account(profile_id, account_id, confirm=False):
     if confirm is not True:
-        raise MailError("An explicit account choice is required; confirm must be true.")
+        raise BridgeError("An explicit account choice is required; confirm must be true.")
     profile = profile_by_id(profile_id)
     account = account_by_id(profile, account_id)
     saved = {"version": 1, "profile_id": profile["id"], "account_id": account["id"],
@@ -175,7 +185,7 @@ def database():
     profile, account = selection()
     path = profile["path"] / "global-messages-db.sqlite"
     if not path.is_file():
-        raise MailError("Thunderbird's local index is missing. Enable Global Search and Indexer, then wait for indexing.")
+        raise BridgeError("Thunderbird's local index is missing. Enable Global Search and Indexer, then wait for indexing.")
     db = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3)
     try:
         db.row_factory = sqlite3.Row
@@ -186,7 +196,7 @@ def database():
         folders = [dict(row) for row in db.execute("SELECT id, folderURI, name FROM folderLocations")
                    if allowed_uri(row["folderURI"], account)]
         if not folders:
-            raise MailError("The selected account has no indexed folders. Enable indexing and sync Thunderbird.")
+            raise BridgeError("The selected account has no indexed folders. Enable indexing and sync Thunderbird.")
         yield db, folders, profile, account
     finally:
         db.close()

@@ -8,7 +8,7 @@ import re
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT / "plugins/thunderbird-mail-bridge"
+PLUGIN = ROOT / "plugins/thunderbird-bridge"
 TEXT_SUFFIXES = {".py", ".cjs", ".json", ".md"}
 
 

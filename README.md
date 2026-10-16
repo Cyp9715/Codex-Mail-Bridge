@@ -2,7 +2,7 @@
 
 [한국어 안내](README.ko.md)
 
-<img src="plugins/thunderbird-mail-bridge/assets/icon.png" alt="Thunderbird Bridge icon" width="96">
+<img src="plugins/thunderbird-bridge/assets/icon.png" alt="Thunderbird Bridge icon" width="96">
 
 An independent Cyp Soft desktop plugin that connects one explicitly selected
 Thunderbird mailbox to Codex through a local MCP server. MIT licensed.
@@ -32,19 +32,37 @@ automatic discovery fails. Thunderbird Global Search and Indexer must be enabled
 Clone this repository and install its local marketplace:
 
 ```powershell
-git clone https://github.com/Cyp9715/Thunderbird-Mail-Bridge.git
-cd Thunderbird-Mail-Bridge
+git clone https://github.com/Cyp9715/Thunderbird-Bridge.git
+cd Thunderbird-Bridge
 codex plugin marketplace add .
-codex plugin add thunderbird-mail-bridge@cyp-soft-local
+codex plugin add thunderbird-bridge@cyp-soft-local
 ```
 
 If the plugin's tools do not appear immediately, reload the desktop app and start
 a local chat. Ask: “Help me choose one Thunderbird account.” Select your own
 account when asked, then request a search or summary. There is no server login.
 
-The generic plugin package is in `plugins/thunderbird-mail-bridge/`. A plugin-only
+The generic plugin package is in `plugins/thunderbird-bridge/`. A plugin-only
 ZIP has no marketplace wrapper; for manual marketplace distribution use this
 repository's source ZIP instead.
+
+### Upgrading from 0.1.x
+
+The installation identifier, MCP connection, and skill are now `thunderbird-bridge`.
+Remove the previous local installation, then install the renamed plugin from the
+updated marketplace:
+
+```powershell
+codex plugin remove thunderbird-mail-bridge@cyp-soft-local
+codex plugin add thunderbird-bridge@cyp-soft-local
+```
+
+The saved account choice stays outside the plugin. If the new settings file is
+absent, the bridge can read the previous `CypSoft/ThunderbirdMailBridge/settings.json`
+location. Read-only calls leave both locations untouched; a new explicit account
+selection writes to `CypSoft/ThunderbirdBridge/settings.json`. An existing invalid
+new file does not fall back to the previous account. A settings override isolates
+its specified file and never falls back to another location.
 
 Windows installation has been tested. macOS and Linux standard, Snap, and Flatpak
 profile discovery is implemented but needs testing on those operating systems.
@@ -63,13 +81,15 @@ are implemented.
 
 ## Local selection storage
 
-- Windows: `%LOCALAPPDATA%/CypSoft/ThunderbirdMailBridge/settings.json`
-- macOS: `~/Library/Application Support/CypSoft/ThunderbirdMailBridge/settings.json`
-- Linux: `$XDG_CONFIG_HOME/CypSoft/ThunderbirdMailBridge/settings.json`, normally
-  `~/.config/CypSoft/ThunderbirdMailBridge/settings.json`
+- Windows: `%LOCALAPPDATA%/CypSoft/ThunderbirdBridge/settings.json`
+- macOS: `~/Library/Application Support/CypSoft/ThunderbirdBridge/settings.json`
+- Linux: `$XDG_CONFIG_HOME/CypSoft/ThunderbirdBridge/settings.json`, normally
+  `~/.config/CypSoft/ThunderbirdBridge/settings.json`
 
 Settings contain profile/account IDs and an identity fingerprint, not passwords,
 mail contents, addresses, or absolute profile paths. Do not distribute settings.
+For complete removal of the account choice, delete the current settings file and
+any previous 0.1.x selection file described above.
 `THUNDERBIRD_HOME` can select a nonstandard Thunderbird registry directory;
 `THUNDERBIRD_BRIDGE_SETTINGS` can isolate a test settings file. Neither is a
 model-provided filesystem path.
@@ -77,8 +97,8 @@ model-provided filesystem path.
 ## Tests and synthetic review data
 
 ```powershell
-python plugins/thunderbird-mail-bridge/tests/test_bridge.py
-python plugins/thunderbird-mail-bridge/tests/create_demo.py --output ./work/review-demo
+python plugins/thunderbird-bridge/tests/test_bridge.py
+python plugins/thunderbird-bridge/tests/create_demo.py --output ./work/review-demo
 ```
 
 The second command creates only reserved `.test` addresses and fake mail. Set the
@@ -105,6 +125,5 @@ Thunderbird is a trademark of the Mozilla Foundation in the U.S. and other count
 Cyp Soft and Thunderbird Bridge are not affiliated with, endorsed by, or sponsored
 by Mozilla, Thunderbird, or OpenAI. MIT does not grant third-party trademark rights.
 
-The stable installation identifier remains `thunderbird-mail-bridge`; the displayed
-product name is Thunderbird Bridge. Account discovery also returns profile names,
+The installation identifier is `thunderbird-bridge`. Account discovery also returns profile names,
 email addresses, and server metadata to the AI host.

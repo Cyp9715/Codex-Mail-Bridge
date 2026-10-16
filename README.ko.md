@@ -27,10 +27,10 @@ Python 3.10 이상이 필요합니다. Thunderbird의 전체 검색·색인 기�
 메일 동기화를 마쳐야 합니다. 단독 웹·모바일 ChatGPT 연결은 제공하지 않습니다.
 
 ```sh
-git clone https://github.com/Cyp9715/Thunderbird-Mail-Bridge.git
-cd Thunderbird-Mail-Bridge
+git clone https://github.com/Cyp9715/Thunderbird-Bridge.git
+cd Thunderbird-Bridge
 codex plugin marketplace add .
-codex plugin add thunderbird-mail-bridge@cyp-soft-local
+codex plugin add thunderbird-bridge@cyp-soft-local
 ```
 
 도구가 바로 보이지 않으면 앱을 새로고침하고 로컬 채팅에서 요청하세요.
@@ -38,7 +38,23 @@ codex plugin add thunderbird-mail-bridge@cyp-soft-local
 > Thunderbird 프로필과 계정을 보여주고, 내가 선택하는 계정 하나만 연결해줘.
 
 계정을 고른 뒤 “최근 메일 10개 요약해줘”, “프로젝트 관련 대화를 찾아줘”처럼
-요청하면 됩니다. 설치 식별자 `thunderbird-mail-bridge`는 호환성을 위해 유지합니다.
+요청하면 됩니다. 설치 식별자는 `thunderbird-bridge`입니다.
+
+### 0.1.x에서 업데이트
+
+기존 로컬 설치를 제거한 뒤 새 식별자로 설치합니다. 계정 선택 설정은 패키지 밖에
+저장되므로 플러그인 제거로 삭제되지 않습니다.
+
+```sh
+codex plugin remove thunderbird-mail-bridge@cyp-soft-local
+codex plugin add thunderbird-bridge@cyp-soft-local
+```
+
+새 설정 폴더는 `CypSoft/ThunderbirdBridge`입니다. 새 설정 파일이 없으면 이전
+`CypSoft/ThunderbirdMailBridge`의 계정 선택을 읽을 수 있습니다. 조회만으로 파일을
+옮기거나 수정하지 않으며, 계정을 다시 명시적으로 선택하면 새 위치에 저장합니다.
+새 설정이 잘못되었거나 테스트용 설정 경로를 지정했다면 이전 설정으로 우회하지 않습니다.
+계정 선택을 완전히 지우려면 이전·현재 설정 파일을 모두 삭제하세요.
 
 ## 범위
 

@@ -3,7 +3,7 @@
 **Thunderbird Bridge · Cyp Soft**
 
 For setup problems, bug reports, and feature requests, use
-[GitHub Issues](https://github.com/Cyp9715/Thunderbird-Mail-Bridge/issues).
+[GitHub Issues](https://github.com/Cyp9715/Thunderbird-Bridge/issues).
 Check existing issues before creating a report.
 
 Include the plugin version, operating system, and a redacted description of

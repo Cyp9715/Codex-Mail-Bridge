@@ -1,0 +1,31 @@
+{
+  "name": "thunderbird-bridge",
+  "version": "0.2.0",
+  "description": "Search one explicitly selected Thunderbird mailbox using its local index.",
+  "author": {
+    "name": "Cyp Soft"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Thunderbird Bridge",
+    "shortDescription": "Search local Thunderbird mail",
+    "longDescription": "Read and search one explicitly selected Thunderbird account locally. Retrieved email is passed to the AI host. No telemetry or mailbox writes. Independent Cyp Soft project. Thunderbird is a trademark of the Mozilla Foundation in the U.S. and other countries. No affiliation, endorsement, sponsorship, or trademark permission is claimed.",
+    "developerName": "Cyp Soft",
+    "category": "Productivity",
+    "capabilities": [
+      "Read"
+    ],
+    "logo": "./assets/icon.png",
+    "composerIcon": "./assets/icon.png",
+    "defaultPrompt": "Help me select one Thunderbird account and search its local mail.",
+    "websiteURL": "https://github.com/Cyp9715/Thunderbird-Bridge",
+    "supportURL": "https://github.com/Cyp9715/Thunderbird-Bridge/blob/main/docs/support.md",
+    "privacyPolicyURL": "https://github.com/Cyp9715/Thunderbird-Bridge/blob/main/docs/privacy.md",
+    "termsOfServiceURL": "https://github.com/Cyp9715/Thunderbird-Bridge/blob/main/docs/terms.md"
+  },
+  "homepage": "https://github.com/Cyp9715/Thunderbird-Bridge",
+  "repository": "https://github.com/Cyp9715/Thunderbird-Bridge"
+}

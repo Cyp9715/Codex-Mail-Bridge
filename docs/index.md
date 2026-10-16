@@ -1,6 +1,6 @@
 # Thunderbird Bridge
 
-**Cyp Soft · version 0.1.1 · free · MIT licensed**
+**Cyp Soft · version 0.2.0 · free · MIT licensed**
 
 Search the locally indexed mail of one explicitly selected Thunderbird IMAP/POP3
 account in a supported Codex/ChatGPT desktop session. Find mail, read indexed
@@ -12,7 +12,7 @@ mail are passed to the AI host; local execution does not mean offline AI
 processing. It cannot send, delete, move mail, save drafts, or read attachment
 contents. The index may be stale or incomplete.
 
-[Source and installation](https://github.com/Cyp9715/Thunderbird-Mail-Bridge)
+[Source and installation](https://github.com/Cyp9715/Thunderbird-Bridge)
 · [Support](support.md) · [Privacy](privacy.md) · [Terms](terms.md)
 
 This is an independent project, not an official Thunderbird, Mozilla, or OpenAI
