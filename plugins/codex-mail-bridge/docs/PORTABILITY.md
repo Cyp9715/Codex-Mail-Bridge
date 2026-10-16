@@ -22,3 +22,9 @@ and invalid settings produce errors rather than guessing another mailbox/path.
 No real accounts, addresses, folder paths, store/message IDs, or mail bodies are
 included in the distributable. Public screenshots/recordings must use isolated
 synthetic data. Report compatibility issues with redacted diagnostics only.
+
+Version 0.4.0 adds metadata-first original attachment handoff and temporary copies.
+Generated-file/stdio and synthetic COM tests cover the new tools; live Outlook
+provider and installed Codex attachment handoff need a dedicated synthetic review.
+Previous body/search evidence does not validate these additions. See
+[attachment support](ATTACHMENT_SUPPORT.md) for cache, size and host limits.

@@ -24,3 +24,9 @@ scope. Other classic Office editions may expose the API but have not had live
 validation here. Outlook's provider may fetch remote data; offline-only behavior
 and live freshness are not promised. Read-only means the bridge performs no
 mailbox mutation, not that the Outlook application itself stops synchronizing.
+
+Version 0.4.0 adds metadata-first original attachment handoff and temporary copies.
+Generated-file/stdio and synthetic COM tests cover the new tools; live Outlook
+provider and installed Codex attachment handoff need a dedicated synthetic review.
+Previous body/search evidence does not validate these additions. See
+[attachment support](ATTACHMENT_SUPPORT.md) for cache, size and host limits.

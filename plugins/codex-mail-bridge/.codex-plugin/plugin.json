@@ -1,6 +1,6 @@
 {
   "name": "codex-mail-bridge",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex. Office 2019 supported.",
   "author": {
     "name": "Cyp Soft"
@@ -12,7 +12,7 @@
   "interface": {
     "displayName": "Mail Bridge",
     "shortDescription": "Read Thunderbird & Outlook",
-    "longDescription": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex. Office 2019 for Windows is supported without a Microsoft 365 subscription or Microsoft Graph connection. Discover accounts, search mail, read bodies, follow conversations, and compose reply text in chat. No send, draft-save, delete, move, read-state change, attachment-content, forced-sync, or security-policy changes. Thunderbird uses registered profiles/local index; Outlook discovers the running classic profile through COM, never guessed PST/OST paths. Shared Outlook delivery stores are rejected. Search/body scans can be partial and disclose their limits. Node.js/Python are required; Outlook also needs Windows PowerShell 5.1 and a running classic profile. Windows Office Standard 2019 x64 has live evidence; other Office editions and PCs require validation. New Outlook and Outlook for Mac/web are unsupported. No Cyp Soft backend or analytics. Retrieved metadata and mail go to the AI host. Outlook may fetch data via its provider. Independent Cyp Soft project, not affiliated with Mozilla, Microsoft, or OpenAI. Product names identify interoperability; no third-party logos are used.",
+    "longDescription": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex, including Office 2019 without Microsoft 365. Search mail, read bodies, follow conversations and draft reply text in chat. Find attachments by subject/date/sender/filename metadata first, list one message, then hand off only needed originals up to 10 MiB. Supported images return typed image content; other files use temporary local paths for Codex file tools. No document parsers, OCR, attachment execution, bulk transfer or cloud upload receipt. No send, draft-save, delete, move, read-state, forced-sync or policy changes. Thunderbird uses registered index/cache paths and bounded mbox/maildir lookup; unavailable/unsafe layouts fail closed. Outlook uses its running classic COM profile, rejects shared stores and protected/linked/OLE/embedded-message attachments. Search can be partial. Temporary exports expire on later requests and normal exit; crashes/locks can leave files. Node.js/Python required, plus Windows PowerShell 5.1 for Outlook. Body/search live evidence is limited to one Office 2019 setup; new attachment tools have synthetic tests and still need live provider/host validation. New Outlook and Mac/web Outlook unsupported. No Cyp Soft backend or tracking. Retrieved mail/files/images reach the AI host. Independent Cyp Soft project; no affiliation with Mozilla, Microsoft or OpenAI.",
     "developerName": "Cyp Soft",
     "category": "Productivity",
     "capabilities": [
@@ -23,7 +23,8 @@
     "defaultPrompt": [
       "Help me choose one Thunderbird account and check its local mail index.",
       "Find recent emails about a project in my selected Thunderbird account.",
-      "Summarize a mail conversation and draft a reply in chat."
+      "Summarize a mail conversation and draft a reply in chat.",
+      "Find a requested attachment by subject and date, then hand off only that original file."
     ],
     "websiteURL": "https://github.com/Cyp9715/Codex-Mail-Bridge",
     "supportURL": "https://github.com/Cyp9715/Codex-Mail-Bridge/blob/main/docs/support.md",

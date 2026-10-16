@@ -9,7 +9,7 @@ from pathlib import Path
 import sqlite3
 
 
-def create_demo(output):
+def create_demo(output, attachments=False):
     output = Path(output).resolve()
     home = output / "thunderbird"
     profile = home / "Profiles/demo"
@@ -64,10 +64,16 @@ def create_demo(output):
         db.commit()
     finally:
         db.close()
-    return {"THUNDERBIRD_HOME": str(home), "THUNDERBIRD_BRIDGE_SETTINGS": str(output / "private-settings.json")}
+    if attachments:
+        from attachment_demo import setup
+        setup(profile)
+    return {"THUNDERBIRD_HOME": str(home), "THUNDERBIRD_BRIDGE_SETTINGS": str(output / "private-settings.json"),
+            "MAIL_BRIDGE_THUNDERBIRD_SETTINGS": str(output / "private-settings.json")}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
-    print(json.dumps(create_demo(parser.parse_args().output), indent=2))
+    parser.add_argument("--attachments", action="store_true", help="Generate synthetic PDF/image originals in a local MIME cache")
+    args = parser.parse_args()
+    print(json.dumps(create_demo(args.output, attachments=args.attachments), indent=2))

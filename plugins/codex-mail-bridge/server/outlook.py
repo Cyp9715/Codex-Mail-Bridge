@@ -1,5 +1,6 @@
 """Classic Outlook through Windows PowerShell and the documented COM API."""
 from datetime import datetime, timezone
+import base64
 import json
 import os
 from pathlib import Path
@@ -8,11 +9,12 @@ import subprocess
 import sys
 
 from accounts import BridgeError
+import attachments
 
 NOTICE = ("Classic Outlook desktop store only; Microsoft 365 subscription is not required. "
           "Searches are bounded and report scan_incomplete when partial. Outlook may fetch data "
           "through its configured provider; offline operation or complete sync is not guaranteed. "
-          "No send, delete, move, mark-read, draft-save, or attachment-content operations.")
+          "No send, delete, move, mark-read, or draft-save operations. Attachments are transferred as original files, never parsed or executed.")
 
 
 def settings_path():
@@ -45,6 +47,12 @@ def backend(operation, **arguments):
             "message_outside_scope": "Message is outside the selected Outlook account or in an excluded folder.",
             "folder_outside_scope": "Folder is outside the selected Outlook account scope.",
             "invalid_message_id": "Use a message ID returned by Outlook search.",
+            "candidate_scan_timeout": "Outlook metadata scan timed out. Narrow the date range or selected folder and retry.",
+            "protected_message": "Encrypted/protected Outlook attachments are not transferred.",
+            "invalid_attachment_id": "Use an attachment ID returned by the selected message's attachment list.",
+            "unsupported_attachment": "Only by-value attachments up to 10 MiB can be transferred; linked, OLE and embedded-message attachments are unsupported.",
+            "attachment_changed": "Attachment changed or is outside this message/account. List it again.",
+            "attachment_data_unavailable": "The Outlook provider did not expose the original attachment bytes within the size limit.",
         }
         raise BridgeError(explanations.get(code, "Outlook access failed. Check the running classic profile and security prompt. Nothing was sent or changed."))
     return data["result"]
@@ -118,7 +126,7 @@ def boundary(value):
 
 
 def scan(*, query="", sender="", recipient="", folder_id="", after="", before="", field="any",
-         limit=10, offset=0, scan_limit=1000, conversation_id="", body_limit=6000):
+         limit=10, offset=0, scan_limit=1000, conversation_id="", body_limit=6000, attachment_query=None):
     start, end = boundary(after), boundary(before)
     if start and end and end <= start:
         raise BridgeError("before must be later than after.")
@@ -135,13 +143,25 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
         text = fields.get(field, " ".join([message["subject"], message.get("body", ""), message["sender"], message["recipients"], *message["attachment_names"]])).casefold()
         if not all(word in text for word in words):
             continue
+        if attachment_query is not None:
+            names = message["attachment_names"]
+            if not names or not all(word in " ".join(names).casefold() for word in attachment_query.casefold().split()):
+                continue
         if conversation_id and message["conversation_id"] != conversation_id:
             continue
         matches.append(message)
     matches.sort(key=lambda m: (m["date"], m["id"]), reverse=not bool(conversation_id))
     shown = matches[offset:offset + limit]
     for message in shown:
-        if not conversation_id:
+        if attachment_query is not None:
+            message.pop("body", None)
+            names = message["attachment_names"]
+            message["attachment_names"] = [name[:200] for name in names[:5]]
+            message["attachment_names_truncated"] = len(names) > 5 or any(len(n) > 200 for n in names)
+            for key in ("subject", "sender", "recipients", "folder_name"):
+                if key in message:
+                    message[key] = message[key][:400]
+        elif not conversation_id:
             body = message.pop("body", "")
             message["snippet"] = " ".join(body.split())[:280]
     more = len(matches) > offset + limit
@@ -156,6 +176,15 @@ def search(query="", sender="", recipient="", folder_id="", after="", before="",
                 before=before, field=field, limit=limit, offset=offset, scan_limit=scan_limit)
 
 
+def search_attachments(query="", filename="", sender="", recipient="", folder_id="", after="", before="", limit=10, offset=0, scan_limit=1000):
+    value = scan(query=query, sender=sender, recipient=recipient, folder_id=folder_id, after=after,
+                 before=before, field="subject", limit=limit, offset=offset, scan_limit=scan_limit,
+                 attachment_query=filename)
+    value["search_mode"] = "subject_and_attachment_metadata_only"
+    value["attachment_search_note"] = "Bounded metadata scan only; refine subject/date/sender/filename filters. No body or file contents are read by this search."
+    return value
+
+
 def read(message_id, max_characters=16000):
     if not re.fullmatch(r"[0-9A-Fa-f]{16,4096}", message_id):
         raise BridgeError("Use an Outlook message ID from search.")
@@ -165,3 +194,41 @@ def read(message_id, max_characters=16000):
 def thread(thread_id, limit=20, offset=0, max_characters_per_message=6000, scan_limit=1000):
     return scan(conversation_id=thread_id, limit=limit, offset=offset,
                 body_limit=max_characters_per_message, scan_limit=scan_limit)
+
+
+def attachment_request(operation, message_id, **arguments):
+    if not re.fullmatch(r"[0-9A-Fa-f]{16,4096}", message_id):
+        raise BridgeError("Use an Outlook message ID from search.")
+    chosen = selection()
+    value = backend(operation, **chosen, message_id=message_id, **arguments)
+    if selection() != chosen:
+        raise BridgeError("Selected Outlook account changed during attachment access.")
+    return value
+
+
+def list_attachments(message_id, limit=20, offset=0):
+    value = attachment_request("attachments", message_id)
+    entries = value["attachments"]
+    value.update(attachments=entries[offset:offset + limit], returned=len(entries[offset:offset + limit]),
+                 listed_attachment_count=len(entries), has_more=len(entries) > offset + limit,
+                 next_offset=offset + limit if len(entries) > offset + limit else None)
+    return response(value)
+
+
+def source_attachment(message_id, attachment_id):
+    if not re.fullmatch(r"a_[0-9a-f]{64}", attachment_id):
+        raise BridgeError("Use an attachment ID from outlook_list_attachments.")
+    value = attachment_request("attachment", message_id, attachment_id=attachment_id)
+    encoded = value.get("data_base64", "")
+    if not isinstance(encoded, str) or len(encoded) > ((attachments.MAX_BYTES + 2) // 3) * 4:
+        raise BridgeError("Attachment transfer exceeds the byte limit.")
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except ValueError:
+        raise BridgeError("Outlook returned invalid attachment data.") from None
+    return data, {**value["attachment"], "account": value["account"], "source": "classic_outlook_object_model"}
+
+
+def get_attachment(message_id, attachment_id, include_image=True):
+    data, meta = source_attachment(message_id, attachment_id)
+    return attachments.transfer(data, meta, lambda: source_attachment(message_id, attachment_id), include_image)

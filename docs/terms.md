@@ -9,7 +9,10 @@ to access and check organization rules before sharing mail with an AI service.
 Thunderbird results can be incomplete or stale. Outlook searches have explicit
 scan/time/body limits and can be partial. Check important conclusions and reply
 text against original mail. No mailbox creation, sending, draft saving, deletion,
-moving, read-status changes, or attachment-content access is implemented.
+moving, or read-status changes are implemented. Requested attachment originals
+are handed off without document parsing or execution; file-format analysis depends
+on the AI host. Temporary-copy retention and incomplete cache/provider coverage
+are described in the [attachment documentation](ATTACHMENT_SUPPORT.md).
 
 Windows with classic Office Standard 2019 x64 has live Outlook evidence. Other
 PCs, Office editions, policies, and client/profile/store layouts need validation;

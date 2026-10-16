@@ -1,6 +1,6 @@
 # OpenAI directory preparation
 
-Mail Bridge · Cyp Soft · version 0.3.0
+Mail Bridge · Cyp Soft · version 0.4.0
 
 Prepared: portable plugin/compatibility manifests, one local stdio server,
 Thunderbird plus classic Outlook tools, explicit account scopes, independent
@@ -30,3 +30,9 @@ The package is a development/submission-preparation bundle, not a completed
 public submission. ZIP validation, private installation, review submission,
 approval, and publication are separate states. Demo recording and verification
 are not claimed complete. See the packaged REVIEW walkthrough.
+
+Version 0.4.0 adds metadata-first original attachment handoff and temporary copies.
+Generated-file/stdio and synthetic COM tests cover the new tools; live Outlook
+provider and installed Codex attachment handoff need a dedicated synthetic review.
+Previous body/search evidence does not validate these additions. See
+[attachment support](ATTACHMENT_SUPPORT.md) for cache, size and host limits.

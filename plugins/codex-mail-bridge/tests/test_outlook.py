@@ -1,5 +1,6 @@
 """Synthetic adapter tests; these do not claim another PC or Outlook edition passed."""
 import copy
+import base64
 import json
 import os
 from pathlib import Path
@@ -52,6 +53,11 @@ class OutlookTests(unittest.TestCase):
             return {"account": ACCOUNT["address"], "messages": copy.deepcopy(MESSAGES), "scanned_messages": 2, "scan_incomplete": True}
         if operation == "read":
             return {"account": ACCOUNT["address"], "message": copy.deepcopy(MESSAGES[0])}
+        if operation in {"attachments", "attachment"}:
+            meta = {"id": "a_" + "c" * 64, "name": "agenda.pdf", "content_type": "application/pdf", "bytes": 12, "transferable": True}
+            if operation == "attachments":
+                return {"account": ACCOUNT["address"], "attachments": [meta], "returned": 1}
+            return {"account": ACCOUNT["address"], "attachment": meta, "data_base64": base64.b64encode(b'%PDF-sample\x00\xff').decode()}
         return {"configured": True, "account": ACCOUNT["address"]}
 
     def select(self):
@@ -132,6 +138,33 @@ class OutlookTests(unittest.TestCase):
         for arguments in ({"after": "2026-02-31"}, {"after": "2026-10-17", "before": "2026-10-01"}):
             with self.assertRaises(BridgeError):
                 outlook.search(**arguments)
+
+    def test_attachment_metadata_search_never_requests_body_or_file(self):
+        self.select()
+        value = outlook.search_attachments(query="Aurora", filename="agenda.pdf", sender="alex", after="2026-10-01", before="2026-11-01")
+        self.assertEqual(value["returned"], 1)
+        self.assertNotIn("body", value["messages"][0]); self.assertNotIn("snippet", value["messages"][0])
+        self.assertFalse(self.calls[-1][1]["include_body"])
+        self.assertEqual(self.calls[-1][0], "scan")
+        self.assertEqual(outlook.search_attachments(query="October 20")["returned"], 0)
+
+    def test_original_attachment_bytes_and_selected_context(self):
+        import attachments
+        self.addCleanup(attachments.cleanup)
+        self.select()
+        listing = outlook.list_attachments("A" * 32)
+        value = outlook.get_attachment("A" * 32, listing["attachments"][0]["id"])
+        self.assertEqual(Path(value.metadata["local_path"]).read_bytes(), b'%PDF-sample\x00\xff')
+        self.assertEqual(self.calls[-1][1]["fingerprint"], ACCOUNT["fingerprint"])
+
+    def test_attachment_scope_invalid_input_and_changed_selection(self):
+        self.select()
+        for mid, token in [("bad-id", "a_" + "c" * 64), ("A" * 32, "agenda.pdf")]:
+            with self.assertRaises(BridgeError): outlook.get_attachment(mid, token)
+        with patch.object(outlook, "selection", side_effect=[{"account_id": "one", "fingerprint": "one"}, {"account_id": "two", "fingerprint": "two"}]), patch.object(outlook, "backend", return_value={}):
+            with self.assertRaisesRegex(BridgeError, "changed"): outlook.list_attachments("A" * 32)
+        with patch.object(outlook, "attachment_request", return_value={"data_base64": "%%%invalid"}):
+            with self.assertRaises(BridgeError): outlook.source_attachment("A" * 32, "a_" + "c" * 64)
 
 
 class RuntimeTests(unittest.TestCase):

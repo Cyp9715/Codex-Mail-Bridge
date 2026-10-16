@@ -151,6 +151,7 @@ class BridgeTests(unittest.TestCase):
         saved = previous.read_bytes()
         with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
             os.environ.pop("THUNDERBIRD_BRIDGE_SETTINGS", None)
+            os.environ.pop("MAIL_BRIDGE_THUNDERBIRD_SETTINGS", None)
             os.environ["LOCALAPPDATA"] = str(storage)
             current = storage / "CypSoft/MailBridge/thunderbird.json"
             self.assertEqual(accounts.settings_path(), current)
@@ -166,6 +167,7 @@ class BridgeTests(unittest.TestCase):
         storage, _ = self.previous_selection()
         with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
             os.environ.pop("THUNDERBIRD_BRIDGE_SETTINGS", None)
+            os.environ.pop("MAIL_BRIDGE_THUNDERBIRD_SETTINGS", None)
             os.environ["LOCALAPPDATA"] = str(storage)
             current = accounts.settings_path()
             current.parent.mkdir(parents=True)
@@ -177,6 +179,7 @@ class BridgeTests(unittest.TestCase):
         with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
             os.environ["LOCALAPPDATA"] = str(storage)
             isolated = Path(self.temp.name) / "isolated/settings.json"
+            os.environ.pop("MAIL_BRIDGE_THUNDERBIRD_SETTINGS", None)
             os.environ["THUNDERBIRD_BRIDGE_SETTINGS"] = str(isolated)
             self.assertFalse(bridge.status()["configured"])
             self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
@@ -192,14 +195,14 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaises(accounts.BridgeError):
             bridge.search(after="2026-02-31")
 
-    def test_no_mail_write_or_attachment_tools(self):
+    def test_no_mail_write_tools_and_accurate_local_write_annotations(self):
         names = {t["name"] for t in bridge.TOOLS}
-        self.assertEqual(len(names), 13)
+        self.assertEqual(len(names), 19)
         for tool in bridge.TOOLS:
             a = tool["annotations"]
             self.assertIs(a["destructiveHint"], False)
             self.assertEqual(a["openWorldHint"], tool["name"].startswith("outlook_"))
-            self.assertEqual(a["readOnlyHint"], tool["name"] not in {"thunderbird_select_account", "outlook_select_account"})
+            self.assertEqual(a["readOnlyHint"], not tool["name"].endswith(("_select_account", "_get_attachment")))
         for name in ("thunderbird_send", "thunderbird_delete", "thunderbird_attachment"):
             self.assertTrue(bridge.call_tool(name, {})["isError"])
 
@@ -218,8 +221,8 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         replies = [json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual([r["id"] for r in replies], [1, 2, 3])
-        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.3.0"})
-        self.assertEqual(len(replies[1]["result"]["tools"]), 13)
+        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.4.0"})
+        self.assertEqual(len(replies[1]["result"]["tools"]), 19)
         hits = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(hits["messages"][0]["id"], 101)
 

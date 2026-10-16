@@ -9,4 +9,9 @@ Client data comes from registered Thunderbird profiles or the running Outlook
 profile API. No fixed user/mail path is assumed. Retrieved data goes to the AI host.
 Free MIT source; no publisher backend, analytics, or payments.
 
+Version 0.4.0 can find attachment candidates by subject/date/sender/filename metadata,
+list one message and hand off only requested originals. Supported images return typed
+image content; other files use temporary local paths for Codex file tools. No document
+parsers or attachment execution. See [attachment support and limits](ATTACHMENT_SUPPORT.md).
+
 [Source and installation](https://github.com/Cyp9715/Codex-Mail-Bridge) · [Support](support.md) · [Privacy](privacy.md) · [Terms](terms.md)

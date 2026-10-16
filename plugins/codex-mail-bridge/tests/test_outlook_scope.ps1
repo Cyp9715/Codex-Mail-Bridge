@@ -26,4 +26,44 @@ Assert-Blocked { Get-ScopedItem $session $store $folderIds ('A' * 32) } 'message
 $script:sample.Class = 43
 [void](Get-ScopedItem $session $store $folderIds ('A' * 32))
 Assert-Blocked { Get-ScopedItem $session $store $folderIds 'not-an-entry-id' } 'invalid_message_id'
+
+# Synthetic attachment properties: metadata listing must never access file bytes.
+$script:byteReads = 0
+$property = New-Object psobject
+$property | Add-Member ScriptMethod GetProperty {
+    param($Tag)
+    if ($Tag.EndsWith('0x37010102')) { $script:byteReads++; return ,([byte[]]@(0, 1, 254, 255)) }
+    if ($Tag.EndsWith('0x370E001F')) { return 'application/octet-stream' }
+    if ($Tag.EndsWith('0x3712001F')) { return '' }
+    if ($Tag.EndsWith('0x7FFE000B')) { return $false }
+    throw 'Missing synthetic property'
+}
+$script:attachment = [pscustomobject]@{ FileName = 'example.bin'; Size = 4; Type = 1; PropertyAccessor = $property }
+$collection = New-Object psobject -Property @{ Count = 2 }
+$collection | Add-Member ScriptMethod Item { param($Index) return $script:attachment }
+$item = [pscustomobject]@{ EntryID = 'A' * 32; Permission = 0; MessageClass = 'IPM.Note'; LastModificationTime = [datetime]'2026-10-15T12:00:00'; Attachments = $collection }
+$listing = Get-ItemAttachments $item 'selected-fingerprint'
+if ($script:byteReads -ne 0 -or $listing.returned -ne 2) { throw 'Metadata listing accessed original files' }
+if ($listing.attachments[0].id -eq $listing.attachments[1].id) { throw 'Duplicate filename IDs collided' }
+$original = Get-ItemAttachments $item 'selected-fingerprint' $listing.attachments[1].id
+if ($original.data_base64 -ne 'AAH+/w==' -or $script:byteReads -ne 1) { throw 'Original bytes changed or multiple attachments read' }
+Assert-Blocked { Get-ItemAttachments $item 'different-fingerprint' $listing.attachments[0].id } 'attachment_changed'
+$item.Permission = 1
+Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' } 'protected_message'
+$item.Permission = 0; $item.MessageClass = 'IPM.Note.SMIME'
+Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' } 'protected_message'
+$item.MessageClass = 'IPM.Note'; $script:attachment.Type = 5
+$listing = Get-ItemAttachments $item 'selected-fingerprint'
+Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' $listing.attachments[0].id } 'unsupported_attachment'
+$script:attachment.Type = 1; $script:attachment.Size = 10485761
+$listing = Get-ItemAttachments $item 'selected-fingerprint'
+Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' $listing.attachments[0].id } 'unsupported_attachment'
+$script:attachment.Size = 4
+$listing = Get-ItemAttachments $item 'selected-fingerprint'
+$item.LastModificationTime = $item.LastModificationTime.AddSeconds(1)
+Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' $listing.attachments[0].id } 'attachment_changed'
+
+# Restrict the requested date range before applying the newest-candidate limit.
+$filter = New-CandidateFilter '2026-10-01T00:00:00+00:00' '2026-11-01T00:00:00+00:00'
+if ($filter -notmatch '0x0E060040.*>=' -or $filter -notmatch '0x0E060040.*<') { throw 'Missing UTC table date bounds' }
 Write-Output 'Outlook scope tests passed'

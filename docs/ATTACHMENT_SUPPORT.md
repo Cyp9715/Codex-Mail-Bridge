@@ -1,114 +1,119 @@
-# Attachment and inline-image support
+# Original attachment handoff
 
-**Feasibility review, October 16, 2026. This is an implementation plan, not a
-shipped attachment reader.** Version 0.3.0 still has 13 tools. Thunderbird returns
-indexed attachment names; Outlook returns filenames from `Attachment.FileName`.
-Neither adapter reads attachment bytes, image pixels, inline CID images, PDFs,
-or Office document contents. A filename is not evidence about a file's contents.
+Version 0.4.0 implements original-file handoff for Thunderbird local MIME caches
+and classic Outlook by-value attachments. It adds six tools, for 19 in total.
+The bridge does not parse PDF, Word, Excel, archives or other document contents,
+perform OCR, execute files, or upload files to an OpenAI Files API.
 
-## Client adapters
+## Search before transfer
 
-### Classic Outlook / Office 2019
+For either client use the following sequence, restricted to its explicitly
+selected account:
 
-Extend the existing COM adapter. Microsoft documents
-[Attachment.PropertyAccessor](https://learn.microsoft.com/en-us/office/vba/api/outlook.attachment.propertyaccessor)
-for accessing MAPI properties and
-[Attachment.SaveAsFile](https://learn.microsoft.com/en-us/office/vba/api/outlook.attachment.saveasfile)
-for exporting an attachment. This approach requires classic Outlook, not a
-Microsoft 365 subscription or Microsoft Graph.
+1. `thunderbird_search_attachments` or `outlook_search_attachments` narrows mail
+   by **subject**, sender, recipient, folder, UTC dates and/or filename. Subject
+   query words and filename words are literal substring matches, not file-content
+   searches. Default 10 results, maximum 20, with bounded filename summaries.
+   Neither search reads message bodies, MIME caches or attachment payloads.
+2. `*_list_attachments(message_id)` lists metadata for **one** candidate message.
+   Default 20 entries, maximum 50 per page, within a 200-attachment safety bound.
+   Duplicate filenames get distinct opaque IDs; inline images include content IDs.
+3. `*_get_attachment(message_id, attachment_id)` transfers **one** needed original,
+   at most 10 MiB. Never enumerate and transfer all mailbox attachments implicitly.
 
-Proposed tools: `outlook_list_attachments(message_id)` and
-`outlook_read_attachment(message_id, attachment_id)`. They are not registered in
-0.3.0. Reuse the current account fingerprint, unique delivery store, folder and
-parent-item checks **before accessing attachment metadata or bytes**. Bind each
-attachment identifier to the selected account, message, index and metadata;
-reject changed selections or changed attachments rather than guessing by filename.
+Refine dates/subject/sender before widening a large search. Outlook applies date
+filters to its metadata table before choosing its newest candidate window, then
+scans at most 1,000 candidates by default, maximum 5,000. Inspect `scan_incomplete`;
+paginate within that window or narrow date/folder filters. Thunderbird searches
+indexed filenames, which can omit inline images, stale entries or unindexed mail.
+An empty result does not establish absence from the complete mailbox.
 
-Start with by-value files. Reject OLE, linked/cloud-reference and embedded-message
-attachments until separately supported. Include inline-image metadata and content
-IDs, but do not fetch external HTML image URLs. Do not call attachment `Save`, mail
-`Save`, `Display`, `Send`, `Delete`, `Move`, or assign `UnRead`.
+## What reaches Codex
 
-Prefer bounded in-memory reads. If an export is necessary, use an exclusive,
-randomly named per-user temporary directory, enforce limits before and after export,
-and clean up on success and failure. A filename or tool argument must never choose
-the disk path. Mailbox access stays read-only, while local temporary writes and
-cleanup must be documented and accurately reflected in tool annotations.
+The get tool writes the exact original bytes into a random private temporary
+directory chosen by the OS, using a generated basename rather than a mail-provided
+path. The result includes its absolute `local_path`, original display name, byte
+count, SHA-256 and an opaque MCP resource link. Codex can use its existing local
+file tools on this path; native document handling depends on the host. A resource
+link alone is not a cloud upload receipt or proof that GPT analyzed a document.
+
+PNG, JPEG, GIF and WebP signatures additionally produce typed MCP image content.
+Set `include_image:false` if only the file is needed; this avoids image-token use.
+Raw file bytes are **not** dumped into ordinary JSON/base64 text or embedded blob
+content in the get response. A host that supports binary MCP resources can explicitly
+call `resources/read`; that returns the original blob and rechecks scope/identity.
+`resources/list` is empty so automatic discovery cannot expose past filenames.
+
+Exports/resources expire after 10 minutes, checked on subsequent transfer/resource
+requests, and normal process exit attempts cleanup. At most 16 exports are retained.
+A crash, locked file or lack of later requests can leave files in the OS temporary
+directory. Remove only the returned files and their generated empty directories
+when no longer needed. No recursive cleanup of user-supplied paths is implemented.
+Already handed-off files, host copies and chat history cannot be recalled by switching
+accounts. Treat originals and their paths as confidential runtime data.
+
+The mailbox remains read-only. Get tools declare `readOnlyHint:false` and
+`idempotentHint:false` because they create temporary local copies, not because they
+modify mail. Selection tools write private bridge settings; other mail tools do
+not write mailbox files. No document-parser dependencies are added.
+
+## Client adapters and limits
 
 ### Thunderbird
 
-The global search index contains no attachment bytes. The recommended approach is
-an optional companion MailExtension using the documented
-[messages API](https://webextension-api.thunderbird.net/en/mv3/messages.html):
-`listAttachments`, `getAttachmentFile`, and MIME metadata from `getFull`.
-`getAttachmentFile` was added in Thunderbird 88; the full companion's minimum
-supported version must be established by implementation and tests.
+The local global index contains no attachment bytes. The adapter resolves the
+selected server's registered `directory-rel` (`[ProfD]`) or absolute `directory`
+preferences and `storeContractID`. It never assumes a `Mail`/`ImapMail` directory
+or one developer's profile. Overlapping account roots and unsafe/escaping folder
+paths are refused. Normal nested `.sbd` folders and Unicode/custom paths are supported;
+hashed/special folder layouts that cannot be safely mapped are unsupported.
 
-Use only account-discovery and message-reading permissions. Those API permissions
-are broader than one account, so the companion must independently enforce the
-same explicit single-account choice for every request. Do not request sending,
-modification, movement or deletion permissions. A user-only authenticated
-native-messaging/IPC relay can connect the add-on to the MCP process; relay setup
-and OS-specific registration need a separate implementation and clean-machine tests.
-Do not expose an unauthenticated local HTTP server or a publisher-hosted mail service.
+Only a scoped, nondeleted indexed message is eligible. Its RFC Message-ID must
+match cached MIME. An offset-like `messageKey` is verified; otherwise a bounded
+recent 64 MiB mbox scan or at most 2,000 maildir files is used, with a five-second
+scan budget and a 32 MiB message cap. Older messages outside those fallback bounds
+can be unavailable even when their index entries exist. Missing/ambiguous identities,
+unavailable cache and changed account/message/attachment IDs fail closed.
 
-Search-index IDs and MailExtension message IDs are different namespaces. Resolve
-the selected-account folder and RFC Message-ID, corroborate identity, and reject
-missing or ambiguous matches. Extension IDs can change after restarting or moving
-mail. Re-resolve and revalidate; do not maintain an unscoped cross-account ID map.
-No fixed `Mail`, `ImapMail`, profile, or user directory may be assumed.
+MIME handling only separates/decode-transports attachments. Listing reads one
+message's MIME structure but decodes **no** attachment payloads; only the requested
+part is decoded on get. No document contents are interpreted. Malformed encodings,
+ambiguous escaped mbox payloads, excessive MIME nesting/parts, over 200 attachments
+and encrypted/protected MIME are refused. Nested message attachments and TNEF
+expansion are unsupported. No network fetch or decryption is attempted. A future
+Thunderbird companion could broaden cache/layout coverage; none is required or
+claimed implemented in this release.
 
-A direct offline-cache reader is another option, but needs separate mbox/maildir
-support, preference-derived storage paths, safe path resolution, message identity
-checks, and explicit missing-cache behavior. It must never search other accounts
-or guess one developer's mail directory. The companion API is preferred for a
-general-user release.
+### Classic Outlook / Office 2019
 
-## Shared extraction and host behavior
+The existing COM adapter checks the selected account fingerprint, unique delivery
+store, eligible folder and item's parent before attachment access. Metadata IDs bind
+the account, message, index, filename, size, type, content ID and modification time.
+Only by-value files up to 10 MiB are transferred via
+[PidTagAttachDataBinary](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagattachdatabinary-canonical-property)
+and [Attachment.PropertyAccessor](https://learn.microsoft.com/en-us/office/vba/api/outlook.attachment.propertyaccessor).
+No `SaveAsFile`, message save, UI opening or read-state assignment is used.
 
-List metadata first, then read only a requested attachment from a selected message.
-Do not retrieve every attachment while searching or reading a body. Retrieved
-files and extracted content go to the AI host; local parsing is not offline AI.
+Listings include at most 200 attachments and disclose truncation. Linked/cloud,
+OLE, embedded-message and protected/IRM/S/MIME items are unsupported. Providers may
+not expose the original bytes and can use their normal network connection. The
+bridge never weakens Outlook or organizational security settings.
 
-| Proposed stage | Output | Boundaries |
-| --- | --- | --- |
-| 1: TXT / CSV, PNG / JPEG | Bounded text or typed MCP image blocks | Validate signatures, byte size and image dimensions; no SVG/HTML rendering |
-| 2: PDF | Bounded text and optionally selected rendered pages | Explicit parser dependency; scanned pages need OCR or an image-capable host |
-| 3: DOCX / XLSX | Paragraphs or selected sheet values | Never execute macros, formulas, external links or embedded programs |
-| Separate future support | Legacy DOC / XLS, TNEF, archives, embedded messages | Reject until individually implemented and tested |
+## Verification
 
-[MCP supports image content blocks](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#image-content).
-Base64 text inside ordinary JSON does not establish image understanding. The
-dispatcher must emit typed image blocks, and the intended Codex host must be
-verified to display and analyze them. PDF resources likewise need host verification
-or local text/page extraction; do not promise native PDF viewing.
+Synthetic tests cover metadata-only searches, no body-column access, no MIME/file
+reads during search, listing without decoding payloads, duplicate names, original
+byte/hash equality, typed images and opt-out, mbox/maildir, absolute/Unicode/nested
+paths, invalid/changed/out-of-scope IDs, encrypted/malformed/oversized inputs,
+expiry/cleanup and stdio `search → list → get → resources/read`. Synthetic PowerShell
+objects verify that listing reads no bytes and get accesses only one file, plus
+scope, protection, type, size and modification checks.
 
-Enforce byte, pixel, page, cell, extracted-character, recursion and time limits.
-Parse documents in a bounded worker. Pin and package parser dependencies and license
-notices, or report an unavailable optional dependency; never download arbitrary
-converters during a mail read. Attachment contents are untrusted data, not commands.
+These are generated-file/unit/stdio tests. Attachment get has not yet been verified
+against a live Outlook provider or installed Codex MCP session, nor on another PC.
+Previous live Office 2019 body/search evidence does not establish attachment support
+in every provider. Public review recordings must use isolated synthetic mail.
 
-Detect encrypted/protected content before extraction. The Thunderbird API can
-return decrypted attachments; this must not silently expand authorized access.
-Do not recover passwords, bypass DRM/IRM, change security policies or silently
-decrypt protected mail. Return an unsupported/protected-content result when normal
-client access and organizational policy do not permit the request.
-
-## Acceptance evidence
-
-Use synthetic mail and files only. Test overlapping IDs across two accounts,
-duplicate filenames and inline IDs, switched accounts, moved/deleted messages,
-excluded folders, missing cache, and unchanged read/unread state. Test oversized,
-corrupt, mismatched and password-protected files, path traversal, excessive archive
-expansion, remote image references, parser timeouts, cleanup failures and missing
-dependencies. Exercise custom/Unicode paths and per-user temp directories.
-
-Verify image display and analysis in the actual host with a generated test image.
-Check document extraction against known synthetic text. No production mail,
-screenshots, attachment names, account identifiers or contents may enter public
-fixtures, commits, issues, PRs or recordings. See
-[publication controls](DEVELOPMENT_SECURITY.md).
-
-Recommended order: Outlook plus shared image/text reading, Thunderbird companion,
-then PDF and modern Office formats. Release a versioned runtime only after the
-corresponding tools, packaging, privacy descriptions and host tests are complete.
+See [MCP tool content](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
+and [publication controls](DEVELOPMENT_SECURITY.md). Local file access, typed image
+delivery, host document analysis and public-directory approval are distinct outcomes.

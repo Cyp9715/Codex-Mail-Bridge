@@ -8,7 +8,8 @@ mail in Codex. Office 2019 is supported; a Microsoft 365 subscription is not req
 Mail Bridge provides read-only mailbox access: search, read, and summarize mail,
 follow conversations, and compose reply text in chat. It cannot create, send,
 save, delete, move, or mark mail as read. Reply text stays in chat until you use
-your mail client yourself. Only the bridge's private account-choice settings are written.
+your mail client yourself. Account selection writes private bridge settings; explicitly
+requested attachment transfers also create temporary local copies.
 
 The MIT-licensed source contains no real mail, account settings, passwords, PST/OST,
 Thunderbird index, or personal computer paths. Retrieved account metadata and mail
@@ -18,7 +19,7 @@ are returned to the AI host; local execution does not make the AI service offlin
 
 | Client | Access method | Requirements and verified scope |
 | --- | --- | --- |
-| Thunderbird | Registered profiles and local global search index | IMAP/POP3; Windows integration tested. macOS/Linux discovery has synthetic tests, not real-machine certification. |
+| Thunderbird | Registered profiles, local index and scoped MIME cache | IMAP/POP3; Windows integration tested. macOS/Linux discovery has synthetic tests, not real-machine certification. |
 | Classic Outlook for Windows | Running Outlook's COM Object Model and the selected account's delivery store | Office Standard 2019 x64 tested. No Microsoft 365 subscription or Microsoft Graph connection is needed. |
 | New Outlook, Outlook on the web, Outlook for Mac | Not implemented | These do not use this adapter's classic Windows COM workflow. |
 
@@ -63,9 +64,11 @@ The older 0.1.x installation identifier was `thunderbird-mail-bridge`.
 
 - Thunderbird: `thunderbird_profiles`, `thunderbird_accounts`,
   `thunderbird_select_account`, `thunderbird_status`, `thunderbird_search`,
-  `thunderbird_read`, `thunderbird_thread`.
+  `thunderbird_read`, `thunderbird_thread`, `thunderbird_search_attachments`,
+  `thunderbird_list_attachments`, `thunderbird_get_attachment`.
 - Outlook: `outlook_accounts`, `outlook_select_account`, `outlook_status`,
-  `outlook_search`, `outlook_read`, `outlook_thread`.
+  `outlook_search`, `outlook_read`, `outlook_thread`, `outlook_search_attachments`,
+  `outlook_list_attachments`, `outlook_get_attachment`.
 
 Each client has one explicitly selected account. Selecting Outlook does not
 switch the Thunderbird choice, and a combined search is never implicit.
@@ -78,14 +81,31 @@ archive stores, virtual search folders, Deleted Items, Drafts, and Outbox are ex
 Accounts sharing one delivery store are rejected because account isolation would
 be ambiguous. Folder and item IDs are checked before reading message content.
 
-Outlook scans the newest 1,000 candidates by default, with a maximum of 5,000 and
+Outlook applies date bounds first, then scans the newest 1,000 candidates in that
+range by default, with a maximum of 5,000 and
 a time budget. `scan_incomplete` indicates partial coverage; pagination applies
 within that scan window. Keyword body search examines at most 6,000 characters
 per message. Body/recipient/attachment-name truncation is disclosed. Empty search
 results never prove absence from the full mailbox. Conversations may be partial
 outside the scan window. Outlook addresses may be legacy Exchange addresses.
 
-Attachment names are available; attachment contents are not. There are no
+Version 0.4.0 adds metadata-first original attachment handoff. Search subjects, dates,
+senders and filenames without bodies or file contents; list one candidate message,
+then get only the needed file. Search returns 10 metadata results by default, maximum
+20. Get returns an original private temporary file (up to 10 MiB), its hash and a
+resource link. PNG/JPEG/GIF/WebP also return typed images; `include_image:false` saves
+image tokens. PDF/Office/other documents stay as original files for Codex file tools.
+No document parsers, OCR, execution, bulk transfer or base64 text dumping are added.
+Host file analysis is separate from delivery and is not a cloud upload receipt.
+
+Thunderbird needs a safely mapped local cache; hashed/special layouts and messages
+outside bounded cache lookup can be unavailable. Classic Outlook supports by-value
+attachments; protected, linked, OLE and embedded-message items are unsupported.
+Exports expire after 10 minutes on later transfer/resource requests (maximum 16);
+normal exit attempts cleanup. Crashes or locked files can leave temporary copies.
+See [attachment handoff and verification limits](docs/ATTACHMENT_SUPPORT.md).
+
+There are no
 send, compose-window, draft-save, delete, move, read-state change, forced-sync,
 security-policy change, or arbitrary PowerShell/SQL execution tools. Outlook's
 own configured provider may retrieve data over the network; offline access and
@@ -126,7 +146,7 @@ selection files to forget choices. This does not erase mail or AI-host history.
 
 ```powershell
 python -m unittest discover -s plugins/codex-mail-bridge/tests -p "test_*.py"
-python plugins/codex-mail-bridge/tests/create_demo.py --output ./work/review-demo
+python plugins/codex-mail-bridge/tests/create_demo.py --output ./work/review-demo --attachments
 python scripts/package.py --output ./outputs
 ```
 
