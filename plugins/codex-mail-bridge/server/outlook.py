@@ -51,6 +51,8 @@ def backend(operation, **arguments):
     if result.returncode or not isinstance(data, dict) or not data.get("ok"):
         code = data.get("error") if isinstance(data, dict) else None
         explanations = {
+            "outlook_not_running": "Open classic Outlook in the intended signed-in Windows profile and retry.",
+            "outlook_instance_ambiguous": "Multiple classic Outlook processes are running in this Windows session. Resolve the intended instance before retrying.",
             "shared_delivery_store": "Multiple Outlook accounts share a delivery store; this layout cannot safely isolate one account.",
             "selection_changed": "Outlook account/profile identity changed. Discover and explicitly select the account again.",
             "message_outside_scope": "Message is outside the selected Outlook account or in an excluded folder.",

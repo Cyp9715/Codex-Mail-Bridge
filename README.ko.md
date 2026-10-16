@@ -68,11 +68,11 @@ Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 �
 업데이트 후 설치본을 다시 불러와야 새 코드가 적용됩니다.
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.0
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.1
 ```
 
 플러그인 목록에서 Cyp Soft 로컬 마켓플레이스를 선택해 Mail Bridge를 설치하세요.
-0.8.0은 Outlook 검색의 불필요한 COM 조회를 줄이고, Exchange 주소 조회와 원본 파일
+0.8.1은 Outlook 검색의 불필요한 COM 조회를 줄이고, Exchange 주소 조회와 원본 파일
 전달을 보완했습니다. Thunderbird의 오래된 mbox는 `cache_scan_offset`으로 이어서
 찾고 `cache_scan_bytes`로 탐색 범위를 넓힐 수 있습니다. Maildir도
 `maildir_scan_offset`으로 이어서 찾고 `maildir_scan_limit`을 조절할 수 있습니다.
@@ -87,8 +87,10 @@ Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션�
 있습니다. 필요한 명령의 스키마만 조회하고, 조건은 비공개 UTF-8 JSON 데이터
 파일로 전달합니다. [CLI 규약](docs/CLI.md)을 참고하세요.
 
-자동 검증은 가상 `.test` 계정과 생성한 문서를 사용합니다. 실제 Outlook
-첨부파일 공급자와 설치된 호스트의 전체 흐름 검증은 아직 남아 있습니다.
+자동 검증 116개가 통과했습니다. 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의
+검색·본문 이어 읽기·대화·첨부 원본 전달을 확인했고, 표본 Outlook 메일의 읽음 상태도 유지됐습니다.
+0.8.1은 실행 중인 Outlook의 COM 연결 실패를 보완합니다. 다른 PC·공급자와 새 설치본의
+자동 스킬 호출 검증은 남아 있습니다. [검증 범위와 ZIP 설치 안내](docs/RELEASE_VALIDATION.md)를 참고하세요.
 소스는 MIT 라이선스이며 공개 디렉터리의 승인과 별개입니다.
 
 현재 버전은 로컬 Git 마켓플레이스와 ZIP 배포에 집중합니다.

@@ -1,4 +1,4 @@
-# Mail Bridge 0.8.0 local architecture review
+# Mail Bridge 0.8.1 local architecture review
 
 Reviewed 2026-10-17. Local distribution and useful mail access are the release
 criteria; public-directory submission is not part of this release.
@@ -59,9 +59,11 @@ bypass was added.
 
 ## Verification
 
-Plugin suite: 94 cases, 93 pass and one synthetic PowerShell runtime case skipped
-under Restricted policy. PowerShell 5.1 AST syntax validation passes; this is not
-proof of execution. Release/publication suite: 22 pass. Synthetic .test mail only.
+Current rerun: 94 plugin cases pass and 22 release/publication cases pass, with
+no skips under the existing RemoteSigned policy. PowerShell syntax and synthetic
+scope/COM-connection cases pass. Automated fixtures use synthetic .test mail only.
+The earlier 0.8.0 audit skipped its runtime case under Restricted policy; policies
+were not changed for either run.
 
 Regression coverage includes original byte/hash equality, explicit larger files,
 old mbox/maildir windows and boundary-spanning records, metadata-only SQL searches,
@@ -70,9 +72,11 @@ cross-process locking, date/body pagination and schema/signature consistency.
 
 Separate PDF/DOCX host handoff QA and extracted-package CLI verification are
 performed for the release. They do not establish a live Outlook provider or an
-installed AI-host session. Native Outlook SaveAsFile/provider behavior, live
-Exchange SMTP resolution, installed-host routing, another PC and live non-Windows
-Thunderbird remain unverified. No production mail was accessed in this audit.
+installed AI-host session. Subsequent archive CLI checks passed native Thunderbird
+and classic Outlook SaveAsFile/export, search/body/thread and sampled unread-state
+checks. No account-specific data is published. Exchange-specific SMTP resolution,
+installed-host routing, another PC and live non-Windows Thunderbird remain
+unverified. See [release validation](RELEASE_VALIDATION.md).
 
 ## Primary API references
 
@@ -80,3 +84,8 @@ Thunderbird remain unverified. No production mail was accessed in this audit.
 - [Efficient table enumeration](https://learn.microsoft.com/en-us/office/client-developer/outlook/pia/how-to-filter-and-efficiently-enumerate-items-in-a-folder)
 - [PidTagHasAttachments](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtaghasattachments-canonical-property)
 - [AddressEntry.GetExchangeUser](https://learn.microsoft.com/en-us/office/vba/api/outlook.addressentry.getexchangeuser)
+
+Version 0.8.1 fixes missing Outlook ROT registration by reconnecting only to one
+already-running process in the current Windows session. Closed/foreign/ambiguous
+instances and unrelated/security COM errors are refused. No profile or policy
+changes are made. The original v0.8.0 tag is preserved.

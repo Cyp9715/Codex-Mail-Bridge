@@ -131,4 +131,34 @@ $exchangeProperty = New-Object psobject
 $exchangeProperty | Add-Member ScriptMethod GetProperty { param($Tag) return 'alex@example.test' }
 $exchange = [pscustomobject]@{ Type = 'EX'; Address = '/o=synthetic/ou=example'; PropertyAccessor = $exchangeProperty }
 if ((Get-SmtpAddress $exchange 'fallback') -cne 'alex@example.test') { throw 'Exchange SMTP resolution failed' }
+
+# A visible Outlook instance may not yet have registered its ROT object. Only
+# that COM failure may reconnect, and only to one process in this session.
+$script:registeredFailure = $true
+$script:activationCalls = 0
+$script:currentSessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
+$script:processes = @([pscustomobject]@{ SessionId = $script:currentSessionId })
+function Get-RegisteredOutlookApplication {
+    if ($script:registeredFailure) { throw [Runtime.InteropServices.COMException]::new('Synthetic missing ROT entry', -2147221021) }
+    return 'registered-synthetic-instance'
+}
+function Get-Process { param($Name, $ErrorAction) return $script:processes }
+function New-Object { param($ComObject) $script:activationCalls++; return 'connected-synthetic-instance' }
+try {
+    if ((Get-RunningOutlookApplication) -cne 'connected-synthetic-instance' -or $script:activationCalls -ne 1) { throw 'Missing ROT entry did not reconnect' }
+    $script:registeredFailure = $false
+    if ((Get-RunningOutlookApplication) -cne 'registered-synthetic-instance' -or $script:activationCalls -ne 1) { throw 'Registered instance caused unnecessary activation' }
+    $script:registeredFailure = $true; $script:processes = @()
+    Assert-Blocked { Get-RunningOutlookApplication } 'outlook_not_running'
+    $script:processes = @([pscustomobject]@{ SessionId = $script:currentSessionId + 1 })
+    Assert-Blocked { Get-RunningOutlookApplication } 'outlook_not_running'
+    $script:processes = @([pscustomobject]@{ SessionId = $script:currentSessionId }, [pscustomobject]@{ SessionId = $script:currentSessionId })
+    Assert-Blocked { Get-RunningOutlookApplication } 'outlook_instance_ambiguous'
+    if ($script:activationCalls -ne 1) { throw 'Closed, foreign or ambiguous instance was activated' }
+    function Get-RegisteredOutlookApplication { throw [Runtime.InteropServices.COMException]::new('Synthetic denied COM access', -2147024891) }
+    Assert-Blocked { Get-RunningOutlookApplication } 'Synthetic denied COM access'
+} finally {
+    Remove-Item Function:Get-Process
+    Remove-Item Function:New-Object
+}
 Write-Output 'Outlook scope tests passed'

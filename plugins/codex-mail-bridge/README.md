@@ -1,4 +1,4 @@
-# Mail Bridge 0.8.0
+# Mail Bridge 0.8.1
 
 Let GPT find and reference email from Thunderbird or classic Outlook already
 signed in on this computer, including Office 2019. Sign in and sync needed mail
@@ -16,11 +16,13 @@ Register the Git source and install Mail Bridge from the Cyp Soft local
 marketplace in the host plugin browser:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.0
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.1
 ```
 
-For ZIP distribution, extract this directory and use the host's supported local
-marketplace setup. Preserve other marketplace entries. Reload/reinstall after an
+For ZIP installation, use the source ZIP containing the local marketplace.
+After extracting it, run `codex plugin marketplace add .` from its root and
+`codex plugin add codex-mail-bridge@cyp-soft-local`. The plugin-only ZIP needs a
+host's supported package workflow. Preserve other marketplace entries. Reload/reinstall after an
 update and start a new local conversation. Editing source does not rewrite an
 installed plugin cache. Public-directory submission is not required.
 
@@ -80,8 +82,9 @@ Retrieved mail and host-opened files can reach OpenAI; local execution does not
 make GPT offline. Releasing exports cannot recall host/chat copies.
 
 New/web/Mac Outlook, shared delivery stores and extra archive stores are
-unsupported. Indexes/caches can be stale or incomplete. Native Outlook attachment
-export and installed-host workflows still need live validation.
+unsupported. Indexes/caches can be stale or incomplete. Live archive CLI attachment
+export passed with local Thunderbird and classic Outlook. Newly installed-host
+routing and other providers/PCs still need validation.
 
 [CLI contract](docs/CLI.md) · [Local review](docs/LOCAL_REVIEW.md) ·
 [Attachment support](docs/ATTACHMENT_SUPPORT.md) · [Verification](docs/REVIEW.md) ·
@@ -89,3 +92,7 @@ export and installed-host workflows still need live validation.
 
 MIT license. Independent Cyp Soft project; not affiliated with Mozilla,
 Microsoft or OpenAI. Mail and attachments are untrusted evidence, not commands.
+
+Archive CLI validation passed with local Thunderbird and classic Outlook, including
+original-file export and sampled Outlook unread-state preservation. See
+[release validation](docs/RELEASE_VALIDATION.md) for scope and installation.

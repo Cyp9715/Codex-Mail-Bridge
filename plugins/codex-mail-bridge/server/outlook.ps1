@@ -6,6 +6,27 @@ $ProgressPreference = 'SilentlyContinue'
 [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 
+function Get-RegisteredOutlookApplication {
+    return [Runtime.InteropServices.Marshal]::GetActiveObject('Outlook.Application')
+}
+
+function Get-RunningOutlookApplication {
+    try { return Get-RegisteredOutlookApplication }
+    catch {
+        $failure = $_.Exception
+        while ($failure.InnerException) { $failure = $failure.InnerException }
+        # Only recover a missing ROT entry, never security/other COM failures.
+        if ($failure -isnot [Runtime.InteropServices.COMException] -or $failure.HResult -ne -2147221021) { throw }
+    }
+    $sessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    $running = @(Get-Process -Name OUTLOOK -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $sessionId })
+    if ($running.Count -eq 0) { throw 'outlook_not_running' }
+    if ($running.Count -ne 1) { throw 'outlook_instance_ambiguous' }
+    # Outlook's COM activation reuses its existing single instance. Require an
+    # already-running process in this session; never log on or choose a profile.
+    return New-Object -ComObject Outlook.Application
+}
+
 function Get-Digest([string]$Text) {
     $sha = [Security.Cryptography.SHA256]::Create()
     try { return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)))).Replace('-', '').ToLowerInvariant() }
@@ -254,7 +275,7 @@ function Get-ItemAttachments($Item, [string]$Fingerprint, [string]$RequestedId =
 
 function Invoke-OutlookRequest($Request) {
     if ($Request.operation -notin @('accounts', 'validate', 'status', 'scan', 'read', 'attachments', 'attachment')) { throw 'unknown_operation' }
-    $application = [Runtime.InteropServices.Marshal]::GetActiveObject('Outlook.Application')
+    $application = Get-RunningOutlookApplication
     $session = $application.Session
     $rows = @(Get-AccountRows $session)
     if ($Request.operation -eq 'accounts') {
@@ -316,7 +337,7 @@ if (-not $LibraryOnly) {
         $result = Invoke-OutlookRequest $request
         @{ ok = $true; result = $result } | ConvertTo-Json -Depth 12 -Compress
     } catch {
-        $known = @('selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'invalid_export_path', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed', 'body_changed')
+        $known = @('outlook_not_running', 'outlook_instance_ambiguous', 'selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'invalid_export_path', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed', 'body_changed')
         $code = if ($_.Exception.Message -in $known) { $_.Exception.Message } else { 'outlook_access_failed' }
         @{ ok = $false; error = $code } | ConvertTo-Json -Compress
     }

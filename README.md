@@ -12,7 +12,7 @@ Keep classic Outlook running in that signed-in profile.** Thunderbird can read
 an existing local index/cache with its window closed. The bridge does not log in
 or request passwords.
 
-Version 0.8.0 uses a **skill and one-shot local scripts**. No MCP server, network
+Version 0.8.1 uses a **skill and one-shot local scripts**. No MCP server, network
 listener, Cyp Soft backend or cloud mail connection is needed. The installed
 skill invokes only the requested local operation and receives compact JSON.
 Retrieved account details, mail text and files opened by the AI host can be sent
@@ -41,7 +41,7 @@ marketplace entries. Start a new local conversation after installation/reload an
 select Mail Bridge. To register this Git marketplace:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.0
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.1
 ```
 
 Choose the Cyp Soft local marketplace in the host plugin browser and install Mail Bridge. Reload the installed plugin after updates; editing source does not rewrite installed caches.
@@ -163,7 +163,10 @@ Tests and fixtures use reserved `.test` identities and generated files. The QA
 script's `pypdf`/`python-docx` are separate host-only test dependencies; runtime
 uses the Python standard library and existing Windows COM adapter. See
 [verification evidence](plugins/codex-mail-bridge/docs/REVIEW.md). Live native
-Outlook attachments and installed-host workflows remain unverified in this release.
+Archive CLI status/search/read/thread and original-file export passed live
+Thunderbird and classic Outlook checks, including sampled Outlook unread-state
+preservation. Installed-host routing and other providers/PCs remain unverified.
+See the [release validation and ZIP installation guide](docs/RELEASE_VALIDATION.md).
 
 The source is MIT licensed and distributed as a local Git marketplace and ZIP.
 The OpenAI public submission portal is not required for local installation.

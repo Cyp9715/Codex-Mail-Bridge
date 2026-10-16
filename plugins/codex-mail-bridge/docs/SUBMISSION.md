@@ -1,7 +1,7 @@
 # OpenAI directory preparation
 
 > Historical notes through 0.7.1. See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for
-> the current local 0.8.0 architecture and verification. Public submission
+> the current local 0.8.1 architecture and verification. Public submission
 > is not part of this local release.
 
 Mail Bridge · Cyp Soft · version 0.7.1
