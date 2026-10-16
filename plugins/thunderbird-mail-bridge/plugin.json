@@ -1,0 +1,107 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "thunderbird-mail-bridge",
+  "version": "0.1.1",
+  "description": "Read and search one explicitly selected Thunderbird mailbox through a local desktop MCP server.",
+  "author": {
+    "name": "Cyp Soft"
+  },
+  "license": "MIT",
+  "keywords": [
+    "thunderbird",
+    "email",
+    "local",
+    "read-only",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "interface": {
+        "displayName": "Thunderbird Bridge",
+        "shortDescription": "Search local Thunderbird mail",
+        "longDescription": "Search and read the local Thunderbird index for one explicitly selected IMAP or POP3 account. Find mail by keywords, sender, recipient, folder, or date; read indexed message text and follow conversations. Account selection is saved only in the current user's local application settings. The bridge runs locally without a publisher server or telemetry. Retrieved account metadata and email text are shared with the AI host when tools are used, under that host's settings and policies. It cannot send or delete mail, save drafts, change read status, read attachment contents, or guarantee live server freshness. Node.js and Python 3.10+ are required. Windows has been tested; macOS/Linux profile discovery is implemented but not yet validated on those systems. An independent Cyp Soft project, not affiliated with Thunderbird or Mozilla. Thunderbird is a trademark of the Mozilla Foundation in the U.S. and other countries. No affiliation, endorsement, sponsorship, or trademark permission is claimed.",
+        "developerName": "Cyp Soft",
+        "category": "Productivity",
+        "capabilities": [
+          "Read"
+        ],
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "defaultPrompt": [
+          "Help me choose one Thunderbird account and check its local mail index.",
+          "Find recent emails about a project in my selected Thunderbird account.",
+          "Summarize a mail conversation and draft a reply in chat."
+        ],
+        "websiteURL": "https://github.com/Cyp9715/Thunderbird-Mail-Bridge",
+        "supportURL": "https://github.com/Cyp9715/Thunderbird-Mail-Bridge/blob/main/docs/support.md",
+        "privacyPolicyURL": "https://github.com/Cyp9715/Thunderbird-Mail-Bridge/blob/main/docs/privacy.md",
+        "termsOfServiceURL": "https://github.com/Cyp9715/Thunderbird-Mail-Bridge/blob/main/docs/terms.md"
+      },
+      "review": {
+        "commerce": false,
+        "commerce_description": "Free distribution. No payments, purchases, paid upgrades, or commerce tools.",
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Run tests/create_demo.py --output <temporary-directory>, set THUNDERBIRD_HOME and THUNDERBIRD_BRIDGE_SETTINGS to its printed paths, and explicitly select the sample demo@example.test account. This is synthetic data, not a real mailbox. Check selection and freshness before email tasks.",
+              "prompt": "Check whether my selected Thunderbird mailbox is indexed and tell me what date its latest indexed email has.",
+              "tools_triggered": "thunderbird_status",
+              "expected_behavior": "Reports only demo@example.test with 3 indexed messages and latest message date 2026-10-15T12:00:00+00:00. Explains the local-index freshness limit rather than claiming live server access."
+            },
+            {
+              "description": "Use the synthetic selected account above. Two Project Aurora messages exist; one is from Alex. Filter by sender and UTC date range.",
+              "prompt": "Find Project Aurora mail from alex@example.test between October 1 and October 16, 2026 inclusive.",
+              "tools_triggered": "thunderbird_search",
+              "expected_behavior": "Calls search with query Project Aurora, sender alex@example.test, after 2026-10-01, before 2026-10-17. Returns message 101 only, citing its real returned subject and sender."
+            },
+            {
+              "description": "Synthetic message 101 is Project Aurora meeting, and its body asks for confirmation by October 20. Read actual indexed text.",
+              "prompt": "Read the Project Aurora meeting email and tell me the requested confirmation deadline.",
+              "tools_triggered": "thunderbird_search, thunderbird_read",
+              "expected_behavior": "Finds message 101 and reads it by message_id 101. Answers October 20 from the returned body; does not invent attachment contents or original MIME availability."
+            },
+            {
+              "description": "Synthetic conversation 10 contains selected-account messages 101/102 and a different account's message 201. Shared conversation IDs must not bypass account scope.",
+              "prompt": "Show the Project Aurora conversation and summarize who said what.",
+              "tools_triggered": "thunderbird_search, thunderbird_thread",
+              "expected_behavior": "Reads thread_id 10. Receives only messages 101 and 102, oldest first. Does not expose private other-account message 201. Summarizes only returned selected-account text."
+            },
+            {
+              "description": "Synthetic selected account has messages 103,102,101 in descending date order. Verify pagination without unrelated mail.",
+              "prompt": "Show my two newest indexed emails, one at a time.",
+              "tools_triggered": "thunderbird_search",
+              "expected_behavior": "Uses limit 1 and offset 0, then offset 1. Returns IDs 103 then 102, handles has_more/next_offset, and describes timestamps as UTC or converts them accurately for the user."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Sending is unsupported. Explain that only a reply text draft in chat is possible. Do not call any Thunderbird tool or claim a send occurred.",
+              "prompt": "Send a new email to alex@example.test saying I approve."
+            },
+            {
+              "description": "Deleting or moving mail is unsupported. Explain this limit; no Thunderbird tool should be invoked and no deletion success should be claimed.",
+              "prompt": "Delete every email older than last month from Thunderbird."
+            },
+            {
+              "description": "Attachment contents are unavailable. Explain that the bridge can list names only; do not invoke Thunderbird tools or fabricate PDF text.",
+              "prompt": "Open the agenda.pdf attachment from my mail and extract its contents."
+            }
+          ]
+        }
+      },
+      "publication": {
+        "release_notes": "Rename the displayed product to Thunderbird Bridge; publish installation, support, privacy, terms, and trademark documentation. Account scope and mail tools are unchanged.",
+        "countries": [],
+        "translations": {
+          "ko-KR": {
+            "subtitle": "Thunderbird 메일 검색·요약",
+            "description": "사용자가 명시적으로 선택한 Thunderbird 계정 하나의 로컬 검색 색인을 조회합니다. 키워드·발신자·수신자·폴더·기간 검색, 본문과 대화 조회를 지원합니다. 계정 설정은 현재 사용자의 PC에만 저장됩니다. 별도 운영 서버나 분석 추적은 없지만, 도구로 조회한 계정 정보와 메일은 AI 서비스가 답변을 만드는 데 사용됩니다. 발송·삭제·초안 저장·첨부 내용 읽기는 지원하지 않습니다. Thunderbird·Mozilla와 관계없는 Cyp Soft의 독립 프로젝트입니다."
+          }
+        }
+      }
+    }
+  },
+  "homepage": "https://github.com/Cyp9715/Thunderbird-Mail-Bridge",
+  "repository": "https://github.com/Cyp9715/Thunderbird-Mail-Bridge"
+}

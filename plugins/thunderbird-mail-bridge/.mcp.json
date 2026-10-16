@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "thunderbird-mail": {
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/server/launch.cjs"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}
