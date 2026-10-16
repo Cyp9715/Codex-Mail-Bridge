@@ -1,6 +1,6 @@
 # Original attachment handoff
 
-Version 0.5.0 retains the original-file handoff introduced in 0.4.0. It supports
+Version 0.6.0 retains the original-file handoff introduced in 0.4.0. It supports
 Thunderbird local MIME caches and classic Outlook by-value attachments. There are
 six attachment tools, for 19 tools in total.
 The bridge does not parse PDF, Word, Excel, archives or other document contents,
@@ -12,7 +12,7 @@ For either client use the following sequence, restricted to its explicitly
 selected account:
 
 1. `thunderbird_search_attachments` or `outlook_search_attachments` narrows mail
-   by **subject**, sender, recipient, folder, calendar dates/periods and/or filename. Subject
+   by **subject**, sender, recipient, folder, explicit date/time bounds and/or filename. Subject
    query words and filename words are literal substring matches, not file-content
    searches. Default 10 results, maximum 20, with bounded filename summaries.
    Neither search reads message bodies, MIME caches or attachment payloads.
@@ -26,10 +26,11 @@ selected account:
 
 Refine dates/subject/sender before widening a large search. Outlook applies date
 filters to its metadata table before choosing its newest candidate window, then
-scans at most 1,000 candidates by default, maximum 5,000. Inspect `scan_incomplete`;
+scans at most 1,000 candidates by default, maximum 5,000. Inspect `search_incomplete` and `scan_incomplete`;
 paginate matches within that window, then follow next_scan_offset with offset 0
-and unchanged filters, or partition by date/folder. Weeks start Monday in the
-user's time_zone; period:this_week and explicit after/before are mutually exclusive.
+and unchanged filters, or partition by date/folder. The caller supplies inclusive
+after/exclusive before RFC 3339 bounds or UTC dates; no natural-language presets
+are needed. Matching-field truncation is disclosed even for empty results.
 Thunderbird searches
 indexed filenames, which can omit inline images, stale entries or unindexed mail.
 An empty result does not establish absence from the complete mailbox.

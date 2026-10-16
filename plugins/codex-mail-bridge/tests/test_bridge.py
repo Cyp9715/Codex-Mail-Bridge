@@ -87,6 +87,18 @@ class BridgeTests(unittest.TestCase):
         with self.assertRaises(accounts.BridgeError):
             bridge.search(folder_id=3)
 
+    def test_status_folder_pages_preserve_account_totals(self):
+        self.select()
+        first = bridge.status(folder_limit=1)
+        self.assertEqual(first["indexed_messages"], 3)
+        self.assertEqual(first["folder_count"], 2)
+        self.assertEqual(first["folders_returned"], 1)
+        self.assertTrue(first["has_more_folders"])
+        second = bridge.status(folder_limit=1, folder_offset=first["next_folder_offset"])
+        self.assertEqual(second["indexed_messages"], 3)
+        self.assertNotEqual(first["folders"][0]["id"], second["folders"][0]["id"])
+        self.assertFalse(second["has_more_folders"])
+
     def test_shared_thread_does_not_leak(self):
         self.select()
         self.assertEqual([m["id"] for m in bridge.thread(10)["messages"]], [101, 102])
@@ -124,21 +136,50 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("body", value["messages"][0])
         self.assertIn("October 20", bridge.search(query="October", include_snippet=True)["messages"][0]["snippet"])
 
-    def test_local_month_since_and_relative_week_filter_actual_index(self):
+    def test_explicit_time_bounds_filter_actual_index(self):
         self.select()
-        now = datetime(2026, 10, 16, tzinfo=timezone.utc)
-        with patch.object(mail_dates, "current_time", return_value=now):
-            value = bridge.call_tool("thunderbird_search", {"period": "this_week", "time_zone": "+09:00"})
+        value = bridge.call_tool("thunderbird_search", {"after": "2026-10-12T00:00:00+09:00", "before": "2026-10-19T00:00:00+09:00"})
         self.assertFalse(value["isError"])
         self.assertEqual([m["id"] for m in json.loads(value["content"][0]["text"])["messages"]], [103])
         with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
             for mid, date in ((101, "2026-09-30T15:00:00+00:00"), (102, "2026-09-30T14:59:59+00:00")):
                 db.execute("UPDATE messages SET date=? WHERE id=?", (int(datetime.fromisoformat(date).timestamp() * 1_000_000), mid))
             db.commit()
-        value = bridge.search(after="2026-10-01", time_zone="+09:00")
+        value = bridge.search(after="2026-10-01T00:00:00+09:00")
         self.assertEqual([m["id"] for m in value["messages"]], [103, 101])
-        self.assertEqual([m["id"] for m in bridge.search(before="2026-10-01", time_zone="+09:00")["messages"]], [102])
-        self.assertEqual(bridge.search_attachments(after="2026-10-01", time_zone="+09:00")["returned"], 1)
+        self.assertEqual([m["id"] for m in bridge.search(before="2026-10-01T00:00:00+09:00")["messages"]], [102])
+        self.assertEqual(bridge.search_attachments(after="2026-10-01T00:00:00+09:00")["returned"], 1)
+
+    def test_unicode_casefold_is_consistent_for_all_literal_filters(self):
+        self.select()
+        with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
+            db.execute("UPDATE messagesText_content SET c1subject=?, c2attachmentNames=?, c3author=? WHERE docid=101",
+                       ("Straße CAFÉ", "RÉSUMÉ.pdf", "Élodie <alex@example.test>"))
+            db.commit()
+        self.assertEqual(bridge.search(query="STRASSE café", field="subject", sender="élodie")["returned"], 1)
+        self.assertEqual(bridge.search_attachments(query="strasse", filename="résumé")["returned"], 1)
+
+    def test_subsecond_range_keeps_exact_index_boundaries(self):
+        self.select()
+        base = mail_dates.epoch_microseconds("2026-09-30T15:00:00+00:00")
+        with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
+            db.execute("UPDATE messages SET date=? WHERE id=101", (base + 1,))
+            db.execute("UPDATE messages SET date=? WHERE id=102", (base,))
+            db.commit()
+        value = bridge.search(after="2026-10-01T00:00:00.000001+09:00", before="2026-10-01T00:00:00.000002+09:00")
+        self.assertEqual([m["id"] for m in value["messages"]], [101])
+        self.assertEqual(value["messages"][0]["date"], "2026-09-30T15:00:00.000001+00:00")
+
+    def test_body_revision_cannot_silently_change_during_pagination(self):
+        self.select()
+        first = bridge.read(101)["message"]
+        self.assertFalse(bridge.call_tool("thunderbird_read", {"message_id": 101, "body_offset": 10, "expected_body_sha256": first["body_sha256"]})["isError"])
+        with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
+            db.execute("UPDATE messagesText_content SET c0body=? WHERE docid=101", ("Changed synthetic body",))
+            db.commit()
+        result = bridge.call_tool("thunderbird_read", {"message_id": 101, "body_offset": 10, "expected_body_sha256": first["body_sha256"]})
+        self.assertTrue(result["isError"])
+        self.assertEqual(json.loads(result["content"][0]["text"])["code"], "body_changed")
 
     def test_long_body_can_be_read_completely_in_small_sections(self):
         self.select()
@@ -292,7 +333,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         replies = [json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual([r["id"] for r in replies], [1, 2, 3])
-        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.5.0"})
+        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.6.0"})
         self.assertEqual(len(replies[1]["result"]["tools"]), 19)
         hits = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(hits["messages"][0]["id"], 101)

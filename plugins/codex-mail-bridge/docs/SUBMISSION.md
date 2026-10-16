@@ -1,6 +1,6 @@
 # OpenAI directory preparation
 
-Mail Bridge · Cyp Soft · version 0.5.0
+Mail Bridge · Cyp Soft · version 0.6.0
 
 Prepared: portable plugin/compatibility manifests, one local stdio server,
 Thunderbird plus classic Outlook tools, explicit account scopes, independent

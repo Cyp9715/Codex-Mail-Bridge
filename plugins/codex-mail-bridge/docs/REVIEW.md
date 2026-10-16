@@ -1,6 +1,6 @@
 # Mail Bridge review walkthrough and evidence
 
-Version 0.5.0 · Cyp Soft · synthetic public demonstrations only
+Version 0.6.0 · Cyp Soft · synthetic public demonstrations only
 
 One stdio MCP server exposes 19 tools. The manifest contains twelve positive cases
 (six Thunderbird, six classic Outlook) and three negative cases. Natural-language
@@ -25,11 +25,12 @@ do not mark those review cases passed.
   temporary-copy cleanup and stdio handoff pass automated tests. Outlook attachment
   access uses synthetic COM properties; live provider/installed-host attachment
   workflows and file analysis remain unverified.
-- Added synthetic coverage: local calendar boundaries and relative weeks/months,
-  body section reconstruction, metadata-only defaults, total body budgets and
-  older Outlook candidate-window continuation.
+- Added synthetic coverage: explicit/subsecond time bounds, Unicode literal
+  predicates, schema defaults/signatures, structured and legacy results, correlated
+  sanitized errors, truncated nonmatching candidates, caller-controlled body search
+  depth, body revision checks, total budgets and candidate-window continuation.
 - Other PCs/Office editions: not run. macOS/Linux live Thunderbird: not run.
-- Current 0.5.0 validation: the unsigned PowerShell runtime test is skipped under
+- Current 0.6.0 validation: the unsigned PowerShell runtime test is skipped under
   this machine's Restricted execution policy. Both PowerShell sources receive
   syntax checks. No script policy is changed or bypassed.
 - Public host review prompts, negative routing, recording and playback: not run.
@@ -39,6 +40,12 @@ report, public screenshots, and demo materials. Synthetic tests are not presente
 as a real Outlook profile, Office-wide certification, or a recorded demo.
 
 ## Isolated Thunderbird demo
+
+Optional source-repository QA: run `python scripts/qa_host_handoff.py` with the
+host's `pypdf` and `python-docx` libraries available. It creates synthetic PDF/DOCX
+mail, verifies stdio metadata/original-file handoff, reads those exports in the
+separate host process and checks cleanup. These are QA-only dependencies, not
+plugin runtime parsers or proof of an installed Codex plugin session.
 
 1. Run `tests/create_demo.py --output <new-temporary-folder> --attachments`.
 2. Use its printed environment variables in a dedicated development connection.

@@ -1,6 +1,5 @@
 """Synthetic adapter tests; these do not claim another PC or Outlook edition passed."""
 import copy
-from datetime import datetime, timezone
 import base64
 import json
 import os
@@ -13,7 +12,6 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 import outlook
-import mail_dates
 from accounts import BridgeError
 
 ACCOUNT = {"id": "o_" + "a" * 24, "fingerprint": "b" * 64, "address": "demo@example.test",
@@ -136,6 +134,20 @@ class OutlookTests(unittest.TestCase):
         self.assertTrue(item["attachment_names_truncated"])
         self.assertIn("subject", item["metadata_truncated_fields"])
 
+    def test_status_folder_output_is_bounded_and_continuable(self):
+        self.select()
+        def native(*args, **kwargs):
+            return {"configured": True, "account": ACCOUNT["address"], "latest_message_date": MESSAGES[1]["date"],
+                    "folders": [{"id": str(n), "name": "F" * 5000, "folder_items": n} for n in range(3)]}
+        with patch.object(outlook, "backend", side_effect=native):
+            first = outlook.status(folder_limit=1)
+            second = outlook.status(folder_limit=1, folder_offset=first["next_folder_offset"])
+        self.assertEqual(first["folder_count"], 3)
+        self.assertEqual(len(first["folders"][0]["name"]), 400)
+        self.assertTrue(first["folders"][0]["name_truncated"])
+        self.assertEqual(second["folders"][0]["id"], "1")
+        self.assertEqual(first["latest_message_date"], second["latest_message_date"])
+
     def test_candidate_continuation_is_separate_from_result_pagination(self):
         self.select()
         windows = [
@@ -152,16 +164,49 @@ class OutlookTests(unittest.TestCase):
         self.assertEqual(second["messages"][0]["id"], "A" * 32)
         self.assertIsNone(second["next_scan_offset"])
 
-    def test_calendar_period_and_local_dates_reach_provider_as_utc(self):
+    def test_explicit_timestamp_bounds_reach_provider_as_utc(self):
         self.select()
-        now = datetime(2026, 10, 16, tzinfo=timezone.utc)
-        with patch.object(mail_dates, "current_time", return_value=now):
-            result = outlook.search_attachments(period="this_week", time_zone="+09:00")
+        result = outlook.search_attachments(after="2026-10-12T00:00:00+09:00", before="2026-10-19T00:00:00+09:00")
         self.assertEqual(self.calls[-1][1]["after"], "2026-10-11T15:00:00+00:00")
         self.assertEqual(self.calls[-1][1]["before"], "2026-10-18T15:00:00+00:00")
-        self.assertEqual(result["date_range"]["period"], "this_week")
-        outlook.search(after="2026-10-01", time_zone="+09:00")
+        self.assertEqual(result["date_range"]["bounds"], "inclusive_start_exclusive_end")
+        outlook.search(after="2026-10-01T00:00:00+09:00")
         self.assertEqual(self.calls[-1][1]["after"], "2026-09-30T15:00:00+00:00")
+
+    def test_complete_candidate_scan_still_discloses_incomplete_matching(self):
+        self.select()
+        truncated = {**copy.deepcopy(MESSAGES[0]), "body": "prefix", "body_truncated": True,
+                     "recipients_truncated": True, "attachments_truncated": True}
+        def native(*args, **kwargs):
+            return {"account": ACCOUNT["address"], "messages": [copy.deepcopy(truncated)], "scanned_messages": 1, "scan_incomplete": False}
+        with patch.object(outlook, "backend", side_effect=native):
+            value = outlook.search(query="unseen-tail", field="body")
+            self.assertEqual(value["returned"], 0)
+            self.assertFalse(value["scan_incomplete"])
+            self.assertTrue(value["search_incomplete"])
+            self.assertEqual(value["body_matching_truncated_messages"], 1)
+            value = outlook.search_attachments(filename="unseen-name")
+            self.assertEqual(value["returned"], 0)
+            self.assertTrue(value["match_evaluation_incomplete"])
+            self.assertEqual(value["metadata_matching_truncated_messages"], 1)
+            self.assertFalse(outlook.search(query="Aurora", field="subject")["search_incomplete"])
+
+    def test_body_search_depth_is_caller_controlled_without_returning_bodies(self):
+        self.select()
+        full = "x" * 7000 + " needle"
+        def native(operation, **kwargs):
+            limit = kwargs["max_characters"]
+            return {"account": ACCOUNT["address"], "messages": [{**copy.deepcopy(MESSAGES[0]), "body": full[:limit], "body_truncated": len(full) > limit}],
+                    "scanned_messages": 1, "scan_incomplete": False}
+        with patch.object(outlook, "backend", side_effect=native) as backend:
+            shallow = outlook.search(query="needle", field="body")
+            deeper = outlook.search(query="needle", field="body", body_search_limit=10000)
+        self.assertEqual(shallow["returned"], 0)
+        self.assertTrue(shallow["search_incomplete"])
+        self.assertEqual(deeper["returned"], 1)
+        self.assertFalse(deeper["search_incomplete"])
+        self.assertNotIn("body", deeper["messages"][0])
+        self.assertEqual(backend.call_args.kwargs["max_characters"], 10000)
 
     def test_thread_aggregate_budget_and_later_body_section_request(self):
         self.select()

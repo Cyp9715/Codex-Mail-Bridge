@@ -1,93 +1,130 @@
-# Design review for 0.5.0
+# Plugin contract review for 0.6.0
 
 ## Assessment
 
-The core architecture fits a local desktop mail plugin: discover accounts, persist
-one explicit account per client, search metadata, list one message's attachments,
-and transfer selected originals. Thunderbird's index is separate from MIME-cache
-access; classic Outlook uses the running profile's scoped COM delivery store.
-The bridge need not contain PDF/Office parsers to deliver original files.
+The bridge's responsibility is to expose reliable, composable mail/file primitives.
+GPT chooses the search criteria and interprets natural language. A plugin does not
+need separate commands for particular languages or phrases such as a relative week.
+The core architecture is appropriate: explicit account selection, local filtering,
+bounded metadata, targeted body reads, attachment listings and selected originals.
 
-Local work and model context are different costs. Filtering many cached messages
-locally does not send those messages to GPT. Only returned metadata, requested body
-sections, file links/paths and explicitly requested image pixels reach the host.
-Document delivery is also distinct from analysis: a local path/resource link is
-not a native cloud attachment or proof that a model opened the document. Host file
-tools and permissions determine what happens next. This release does not invent a
-cloud upload receipt or encode document bytes into ordinary text responses.
+This review covered discovery and selection, scope enforcement, dates and literal
+filters, result/candidate pagination, text and image budgets, body consistency,
+attachment identity/bytes/resources, error recovery, MCP transport, launcher,
+manifests, skills, documentation, tests and publication controls. It found real
+contract defects beyond the original focus on natural-language date conveniences.
 
-## Findings addressed
+## Findings and changes
 
-| Previous behavior | Consequence | 0.5.0 change |
+| Finding | Consequence | 0.6.0 behavior |
 | --- | --- | --- |
-| Search could read bodies for a newest/subject listing and return very long metadata | Unnecessary work and unpredictable context size | Metadata-only output by default, optional 280-character snippet, bounded fields with truncation flags; subject/empty metadata searches do not read bodies |
-| Read returned only a body prefix, up to 60,000 characters | Important later text was unreachable through the read tool | Body offset and explicit next offset allow complete, incremental reading |
-| Default conversation output allowed 20 times 6,000 body characters | One call could return 120,000 body characters; maximum settings allowed 480,000 | Aggregate body budget defaults to 24,000, up to 120,000; every omitted section remains reachable by message ID |
-| Outlook result offset stayed inside a fixed newest-candidate window | Repeated pagination could never reach older candidates | Separate candidate scan offset and next offset, plus date/folder partition guidance |
-| Calendar dates were UTC only and relative periods were absent | Local midnight and 'this week' could be interpreted incorrectly | Time-zone-aware inclusive start/exclusive end, this/last week/month and normalized UTC range in results |
-| Image get automatically included pixels | Saving an original image could also spend image tokens | Original file remains the default; pixels require include_image:true |
-| Listing did not explicitly require an existing signed-in client account | Installation could be mistaken for mail authentication | Prerequisite stated in English/Korean listing, README and skill; classic Outlook must remain running |
-| Four default prompts exceeded the portable format's limit of three | Package compatibility problem | Three existing prompts retained, with release-time validation and overlay consistency checks |
+| Date inputs only accepted whole days; relative presets duplicated caller reasoning | GPT could not request a precise arbitrary interval | after/before accept explicit RFC 3339 timestamps with offsets or UTC dates; relative presets and timezone-database dependency removed |
+| Provider table date literals have minute precision | A precise exclusive end could lose mail before filtering | Broaden the provider filter, then apply exact UTC bounds before candidate limits; SQLite microseconds use integer arithmetic |
+| SQLite lower() and Outlook casefold() had different Unicode matching | Equivalent literal searches could disagree across clients | Thunderbird uses deterministic Unicode casefolding for subject/body/sender/recipient/filename predicates |
+| A completed candidate scan could still search truncated fields | Empty results could hide missed body/recipient/filename matches | search_incomplete includes candidate coverage and matching-field truncation, counted before filtering returned matches |
+| Outlook body matching was fixed to one prefix size | GPT could not widen a deeper local keyword search | body_search_limit is caller-controlled, 6000 by default and up to 60000 |
+| Paginated body reads had no revision check | Sections from changed content could be combined | Full-body SHA-256 is returned; optional expected_body_sha256 rejects mixed revisions |
+| Defaults were mainly prose; results/errors mainly text | Programmatic callers had to infer settings and recovery | Schema defaults reflect implementation; structured metadata plus compatible JSON text; errors include code/retryable/next_action |
+| Unexpected dispatch failures lost request IDs; empty invalid params became defaults | MCP clients could lose request correlation or receive misleading errors | Preserve valid request IDs, validate envelopes/params and sanitize failures; reject non-JSON numeric constants |
+| Returned result offsets could exceed their input-schema ceiling | Deep pagination could produce an unusable next offset | Matched-result offsets support the same integer continuation range as body reads; bounded Outlook candidate offsets still disclose partition requirements |
+| Status returned every folder on each check | A mailbox with many folders could consume excessive context before searching | folder_limit/folder_offset paginate bounded folder summaries while preserving account totals and latest date |
 
-Character budgets are practical bounds, not token estimates. Tool schemas,
-instructions and metadata have their own context cost. Images depend on the host's
-vision accounting. This review makes no percentage-token-savings claim.
+These changes retain original attachment handoff without adding document parsers.
+Search work performed locally is not automatically sent to GPT. Returned metadata,
+requested body sections and explicitly requested images contribute host context.
+Character bounds are not token counts, and host handling of mirrored structured/text
+results needs host-specific measurement; no token-savings percentage is claimed.
 
-## Calendar and broad-reading behavior
+## Tool families reviewed
 
-'Since October 2026' maps to after:2026-10-01 without an end date. 'This week'
-maps to period:this_week and the user's time_zone. Weeks start Monday; this/last
-month use calendar boundaries. Korean dates can use +09:00 without dependencies.
-IANA zones require local timezone data, which may need optional tzdata on Windows.
-Unavailable zones fail clearly rather than silently using the machine's zone.
+| Family | Inputs and outputs | Scope and side effects |
+| --- | --- | --- |
+| Thunderbird profiles / client accounts | Discover opaque IDs and account metadata without message payloads | Discovery metadata goes to the host; no implicit selection |
+| client_select_account | Explicit account choice and confirm; private opaque settings | One selected account per client; settings write only |
+| client_status | Selected client, paginated local folders, account totals and freshness limitations | No forced sync; no claim of complete server state |
+| client_search | Query/field/sender/recipient/folder/time bounds, output/result/candidate/depth controls | Selected account only; bounded metadata and optional snippet |
+| client_read | Message ID, body offset/limit, optional expected hash | Selected message, reported offset units and continuation; no mailbox write |
+| client_thread | Conversation ID, page and per-message/aggregate budgets | Selected account only; omitted bodies retain IDs for targeted read |
+| client_search_attachments | Subject/filename/sender/recipient/folder/time filters | Metadata only, no MIME caches, body or document payloads |
+| client_list_attachments | One message ID and metadata pagination | Scoped cache/COM metadata; no payload decoding for a filename search |
+| client_get_attachment | One message/attachment ID and image opt-in | Exact original temporary file; byte/hash checks, no parser/execution |
+| MCP resources | Opaque URI from get; empty automatic catalog | Deferred reads recheck source scope/identity; original binary resource only |
 
-Small defaults do not cap a user-authorized investigation. A task may paginate
-results, inspect older candidate windows, partition by dates/folders, read later
-body sections, increase conversation budgets, and analyze many selected files in
-batches. Explicit account isolation, per-file byte limits and original-byte checks
-remain in effect. There is no arbitrary-path tool or implicit access to every
-mail account. General local-file analysis belongs to the host's existing file tools.
+There are 19 tools. Thunderbird uses registered profile/server paths and a read-only
+SQLite connection. Outlook uses the running classic COM profile and a unique
+delivery store, checking item parent/store before content access. Shared Outlook
+stores, excluded folders and out-of-scope IDs fail closed. Plugin identity, audience
+and read-only mailbox behavior remain unchanged. Selection/get annotations disclose
+their local writes; no arbitrary local-path, SQL or command-execution tool is exposed.
 
-Outlook candidate offsets are bounded to 100,000 and each request retains time
-limits. They rebuild a bounded local candidate view; they are not a server snapshot.
-Mail changes can shift windows, so broad reviews must deduplicate message IDs and
-disclose partial coverage. Date/folder partitions remain necessary for large stores
-or slow providers. Thunderbird cache lookup is likewise bounded and may not find
-old or specially laid-out MIME even when the index has a match.
+The manifests, compatibility overlay and MCP server report the same version.
+Default prompts remain within the portable limit. The listing and skill explicitly
+require a signed-in/synced client; classic Outlook must remain running. The launcher
+uses existing Node/Python and downloads nothing. Windows PowerShell uses its own
+module defaults while preserving execution-policy variables.
 
-## Further improvements
+## Original files and host boundary
 
-1. Verify the full installed-host path using generated PDF/Office/image originals
-   and an isolated classic Outlook profile: byte equality, host file permissions,
-   actual model analysis and unchanged unread state. A native host attachment
-   integration could improve document handoff when a supported API is verified.
-2. Replace numeric candidate offsets with a stable date/ID cursor or short-lived,
-   account-bound local candidate snapshot for very large Outlook mailboxes.
-   Consider provider-side metadata prefilters while preserving literal matching,
-   Unicode handling, account boundaries and honest partial-result reporting.
-3. Consider an optional Thunderbird companion using its documented APIs for
-   special/hashed cache layouts and uncached originals. Keep normal sync/authentication
-   in the mail client and never fetch remote tracking images implicitly.
-4. Consider explicit release of exported temporary files and stronger cleanup after
-   interrupted sessions. Current expiry is lazy and crashes/locks can leave copies;
-   files already delivered to a host cannot be recalled by switching accounts.
+Get writes original bytes to an OS-temporary file and returns its absolute path,
+size, SHA-256 and resource link. Supported image pixels are included only when
+requested. Ordinary text responses never contain document bytes/base64 blobs.
+This is a local file handoff, not a native cloud attachment or upload receipt.
+Actual host file permissions, document support and model analysis remain separate
+requirements. A successful export alone does not prove GPT opened a PDF/Office file.
 
-## Evidence and limits
+No PDF/Office/archive parsers, OCR, attachment execution, implicit bulk transfer,
+remote tracking-image fetches or security-policy changes were added. Generic host
+file tools can handle files outside the mailbox when the user's task and host
+permissions authorize it; the mail plugin need not duplicate general filesystem tools.
 
-Synthetic tests exercise calendar rollover/local midnight, actual scoped SQLite
-date filtering, metadata without body-column reads, long-body reconstruction,
-aggregate budgets, separate scan continuation, image opt-in, original byte/hash
-equality, scope/protection checks, stdio transport and release validation.
-PowerShell tests use synthetic objects/functions and do not open a real mailbox.
-On the current validation machine, the effective Restricted execution policy
-prevents the unsigned PowerShell runtime test from running. That test is explicitly
-skipped; both PowerShell files receive a parser-only syntax check. No execution
-policy is changed or bypassed. Windows PowerShell starts with its own module-path
-defaults to avoid incompatible PowerShell 7 modules inherited through Python;
-execution-policy environment variables remain intact.
-Existing live body/search evidence covers one Office 2019 setup. It does not prove
-the new attachment, pagination or host-analysis behavior against a live provider
-or every installed Codex environment. No production mailbox data is needed for review.
+## Remaining limits and proposals
 
-Reference: [MCP tool content and resource links](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
+1. Verify actual original-file access and analysis in an installed Codex connection
+   using generated PDF/Office/image files and an isolated Outlook profile. Check
+   exact bytes, host permissions and unchanged read state. Consider a native file
+   attachment integration only after verifying a supported host API.
+2. Numeric Outlook candidate windows rebuild a bounded view and can shift as mail
+   changes. Deduplicate IDs and partition dates/folders for broad work. A stable
+   cursor or short-lived account-bound candidate snapshot would improve large stores;
+   provider-side metadata filters could reduce COM round trips.
+3. Thunderbird's index/cache can be stale or incomplete; safe MIME lookup is bounded
+   to a recent mbox window/maildir count and message size. An optional companion
+   using documented Thunderbird APIs could broaden uncached/special-layout access.
+4. Per-file delivery is limited to 10 MiB, with 16 exports and lazy 10-minute expiry.
+   Crashes/locks can leave copies. Explicit export release and stronger interrupted
+   session cleanup are potential lifecycle improvements. Delivered host/chat copies
+   cannot be recalled by switching accounts.
+5. Outlook matching can still be incomplete at the maximum prefix/metadata limits.
+   The plugin now reports this even for empty results. Broad tasks can enumerate
+   metadata and read relevant bodies/files in sections; small defaults do not cap
+   an entire investigation. Complete local evaluation never proves server freshness.
+
+## Verification boundary
+
+Synthetic tests cover all tool-schema signatures/defaults, explicit and subsecond
+time bounds, actual scoped SQLite predicates, Unicode literal matching, body
+reconstruction/revision checks, aggregate budgets, separate candidate/result paging,
+truncated nonmatching candidates, configurable body matching, structured/legacy MCP
+results, sanitized correlated errors, attachment byte/hash equality, image opt-in,
+scope/protection limits, stdio handoff and package/publication checks.
+
+The current environment's Restricted PowerShell policy prevents the unsigned
+synthetic runtime script from running; that test is explicitly skipped. Both
+PowerShell sources receive parser-only syntax checks. Native provider date filtering,
+body hashes and attachment access still need live/synthetic runtime verification in
+an allowed environment. No policy was changed or bypassed. Existing live body/search
+evidence covers one Office 2019 setup, not all new behavior or installed hosts.
+No production mail is used in source/tests or public review materials.
+
+Additional standalone QA generated valid PDF and DOCX originals, retrieved them
+through the stdio search/list/get workflow, verified exact bytes/hashes, then read
+their text using separate host-side PDF/Word libraries. Normal-exit cleanup passed.
+Those libraries are not plugin runtime dependencies. This verifies downstream local
+file access, not an installed MCP plugin session or live Outlook provider.
+Reproduce with `python scripts/qa_host_handoff.py` from the source repository when
+the host has optional `pypdf` and `python-docx` libraries. The QA script is included
+in the source ZIP, not the plugin runtime package, and uses only synthetic data.
+
+References: [MCP tool results](https://modelcontextprotocol.io/specification/2025-06-18/server/tools),
+[Outlook table date filters](https://learn.microsoft.com/en-us/office/vba/outlook/how-to/search-and-filter/filtering-items-using-a-date-time-comparison),
 and [Outlook attachment property access](https://learn.microsoft.com/en-us/office/vba/api/outlook.attachment.propertyaccessor).

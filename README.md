@@ -79,19 +79,19 @@ The older 0.1.x installation identifier was `thunderbird-mail-bridge`.
 
 Each client has one explicitly selected account. Selecting Outlook does not
 switch the Thunderbird choice, and a combined search is never implicit.
-Search supports literal keywords, sender, recipient, folder, and calendar dates.
-`after` includes its date; `before` excludes its date at midnight in `time_zone`
-(default UTC). Use `time_zone:"+09:00"` for Korean dates without extra dependencies.
-IANA zones are supported when local timezone data is available; Windows may need
-optional `tzdata`. The launcher never downloads it. Responses disclose normalized
-UTC `date_range`. See the calendar examples below.
+Search supports literal query/field, sender, recipient and folder filters plus
+explicit inclusive after/exclusive before bounds. Bounds accept RFC 3339 timestamps
+with Z or an offset, or YYYY-MM-DD at UTC midnight. GPT resolves natural language
+and chooses those values; the plugin does not need language/relative-period commands.
+Responses return the normalized UTC date_range.
 
-Version 0.5.0 returns bounded search metadata by default. Request `include_snippet:true`
+Search returns bounded search metadata by default. Request `include_snippet:true`
 only when a 280-character body preview is useful. Subject/empty metadata searches
 read no body; body/any queries can still search text locally. Long metadata fields
 and filename summaries have explicit truncation flags. Read bodies in sections using
 `body_offset` / `next_body_offset`; later text is reachable without repeating the
-prefix. Conversations have a total body budget of 24,000 characters per page by
+prefix. Pass expected_body_sha256 from a prior read/thread result to reject mixed
+body revisions. Conversations have a total body budget of 24,000 characters per page by
 default, configurable with `max_total_characters` up to 120,000. Use read for omitted
 sections. These are character budgets, not exact model-token counts.
 
@@ -104,8 +104,10 @@ be ambiguous. Folder and item IDs are checked before reading message content.
 Outlook applies date bounds first, then scans the newest 1,000 candidates in that
 range by default, with a maximum of 5,000 and
 a time budget. `scan_incomplete` indicates partial coverage; pagination applies
-within that scan window. Keyword body search examines at most 6,000 characters
-per message. Body/recipient/attachment-name truncation is disclosed. Empty search
+within that scan window. body_search_limit controls the local keyword-matching
+prefix (default 6,000, maximum 60,000 characters). search_incomplete also reports
+truncated matching fields, even for nonmatching candidates. Body/recipient/filename
+coverage counters distinguish this from a candidate-window limit. Empty search
 results never prove absence from the full mailbox. Conversations may be partial
 outside the scan window. Outlook addresses may be legacy Exchange addresses.
 For broader coverage, paginate matching results with `offset`, then follow
@@ -114,11 +116,11 @@ For broader coverage, paginate matching results with `offset`, then follow
 coverage and reduce repeated local scan work. Mail changes can shift windows;
 deduplicate by ID. Timeouts or partial scans must not be described as complete.
 
-Version 0.4.0 adds metadata-first original attachment handoff. Search subjects, dates,
+Attachment tools use metadata-first original-file handoff. Search subjects, dates,
 senders and filenames without bodies or file contents; list one candidate message,
 then get only the needed file. Search returns 10 metadata results by default, maximum
 20. Get returns an original private temporary file (up to 10 MiB), its hash and a
-resource link. In 0.5.0, PNG/JPEG/GIF/WebP return typed images only with
+resource link. PNG/JPEG/GIF/WebP return typed images only with
 `include_image:true` for visual analysis; the default false still delivers the original.
 PDF/Office/other documents stay as original files for Codex file tools.
 No document parsers, OCR, execution, implicit bulk transfer or base64 text dumping are added.
@@ -133,24 +135,30 @@ See [attachment handoff and verification limits](docs/ATTACHMENT_SUPPORT.md).
 User-requested broad analysis can search many pages/date ranges and read many
 relevant files in manageable batches; the small defaults do not cap an entire task.
 
-## Calendar date examples
+## Tool input and output contract
 
-These options apply to both clients' mail and attachment searches. Weeks start
-Monday in the requested time zone. Relative periods use the bridge's current
-clock. Do not combine `period` with explicit `after` / `before`.
+The same explicit time bounds apply to both clients' mail and attachment searches.
+For example, after:"2026-10-01T00:00:00+09:00" starts at that exact instant;
+after:"2026-10-01" starts at UTC midnight. Fractional seconds support up to six digits.
 
-| User request | Search arguments |
+| Caller control | Behavior |
 | --- | --- |
-| Since October 2026, Korean time | `after:"2026-10-01", time_zone:"+09:00"` |
-| This week | `period:"this_week", time_zone:"+09:00"` |
-| Last week | `period:"last_week", time_zone:"+09:00"` |
-| This month / last month | `period:"this_month"` / `period:"last_month"`, with the user's `time_zone` |
-| October only | `after:"2026-10-01", before:"2026-11-01", time_zone:"+09:00"` |
+| folder_limit / folder_offset | Status folder-metadata pages; whole-account totals are preserved |
+| after / before | Arbitrary inclusive start / exclusive end; either can be omitted |
+| query / field / sender / recipient / folder_id / filename | Literal scoped filters; filename is an attachment-search filter |
+| limit / offset | Matching-result pagination, independent of Outlook candidate windows |
+| scan_limit / scan_offset | Bounded Outlook candidate scope and continuation |
+| body_search_limit | Deeper local Outlook body matching without returning those bodies |
+| max_characters / body_offset / expected_body_sha256 | Targeted body sections with optional revision consistency |
+| max_characters_per_message / max_total_characters | Per-message and aggregate conversation output budgets |
+| include_snippet / include_image | Explicit preview/pixel delivery |
 
-The agent resolves a missing year from the conversation or clarifies ambiguity.
-For example, October 1 at Korean midnight is September 30 at 15:00 UTC; filtering
-from October 1 UTC would incorrectly omit nine hours of mail.
-See [design review and follow-up recommendations](docs/DESIGN_REVIEW.md).
+Supported MCP versions receive structuredContent plus the compatible JSON text
+fallback; file bytes remain separate from metadata. Errors include code, retryable
+and, when appropriate, next_action. Input-schema defaults match runtime defaults.
+coverage_scope and search_incomplete describe local evaluation, not server freshness.
+The 0.5.0 period/time_zone conveniences were removed in 0.6.0 in favor of explicit
+bounds chosen by the caller. See [full plugin contract review](docs/DESIGN_REVIEW.md).
 
 There are no
 send, compose-window, draft-save, delete, move, read-state change, forced-sync,

@@ -1,22 +1,21 @@
 # Mail Bridge · Cyp Soft
 
-Read Thunderbird and classic Outlook mail in Codex. Office 2019 is supported;
-Microsoft 365 is not required. The bridge searches and reads one explicitly
-selected account per client without sending, saving drafts, deleting, moving,
-or marking mail as read. Reply text can be written in chat.
+Read selected Thunderbird and classic Outlook mail in Codex, including Office 2019.
+Sign in and sync needed mail in the desktop client first; keep classic Outlook running.
+The bridge exposes explicit search filters/time bounds, metadata/result pages,
+body sections, conversation budgets and selected original attachment tools.
+GPT interprets natural-language requests and chooses those arguments.
 
-Client data comes from registered Thunderbird profiles or the running Outlook
-profile API. Sign in and sync in the mail client first; keep classic Outlook running. No fixed user/mail path is assumed. Retrieved data goes to the AI host.
-Free MIT source; no publisher backend, analytics, or payments.
+Original files use temporary local paths/resource links. Supported image pixels
+are opt-in. No PDF/Office parsers, attachment execution or cloud upload receipt.
+Actual host file access/analysis requires host permissions and format support.
+Mailboxes remain read-only; account selection and exports write only local settings/copies.
 
-Version 0.5.0 can find attachment candidates by subject/date/sender/filename metadata,
-list one message and hand off only requested originals. Supported images return typed
-image content when include_image:true is requested; other files use temporary local paths for Codex file tools. No document
-parsers or attachment execution. See [attachment support and limits](ATTACHMENT_SUPPORT.md).
+Broad work can continue candidate/result pages and partition dates/folders. Coverage,
+truncation, revision hashes and actionable errors support targeted follow-up.
+Registered client paths are used; no fixed mailbox path is assumed. Retrieved
+data goes to the AI host. Free MIT source; no publisher backend, tracking or payments.
 
 [Source and installation](https://github.com/Cyp9715/Codex-Mail-Bridge) · [Support](support.md) · [Privacy](privacy.md) · [Terms](terms.md)
 
-Search by local calendar dates or this/last week/month. Metadata is the default;
-request snippets, body sections and larger thread budgets when useful. Broad
-reviews can continue older candidates and partition dates/folders.
-See [design review](DESIGN_REVIEW.md).
+[Full plugin contract review](DESIGN_REVIEW.md) · [Original-file support and limits](ATTACHMENT_SUPPORT.md)

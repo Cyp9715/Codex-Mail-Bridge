@@ -66,12 +66,19 @@ Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' $listing.attac
 # Restrict the requested date range before applying the newest-candidate limit.
 $filter = New-CandidateFilter '2026-10-01T00:00:00+00:00' '2026-11-01T00:00:00+00:00'
 if ($filter -notmatch '0x0E060040.*>=' -or $filter -notmatch '0x0E060040.*<') { throw 'Missing UTC table date bounds' }
+$precise = New-CandidateFilter '2026-10-01T10:30:15+00:00' '2026-10-01T10:30:45+00:00'
+$broadEnd = ([datetime]'2026-10-01T10:31:00').ToString('g', [Globalization.CultureInfo]::CurrentCulture).Replace("'", "''")
+if (-not $precise.Contains($broadEnd)) { throw 'Provider date filter rounded exclusive end inward' }
+$startUtc = [DateTimeOffset]::Parse('2026-10-01T10:30:15.000001Z').UtcDateTime
+$endUtc = $startUtc.AddTicks(10)
+if (-not (Test-TimeBounds $startUtc $startUtc $endUtc) -or (Test-TimeBounds $endUtc $startUtc $endUtc)) { throw 'Exact inclusive/exclusive date bounds failed' }
 
 # Body paging reaches later text and never breaks a Unicode surrogate pair.
 $body = ('A' * 100) + [char]::ConvertFromUtf32(0x1F680) + ('B' * 100)
 $offset = 0; $reconstructed = ''
 do {
     $page = Get-BodySection $body 101 $offset
+    if ($page.body_sha256 -cne (Get-Digest $body)) { throw 'Body revision changed across sections' }
     $reconstructed += $page.body
     $offset = $page.next_body_offset
 } while ($page.has_more_body)

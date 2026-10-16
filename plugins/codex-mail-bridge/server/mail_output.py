@@ -1,4 +1,15 @@
 """Bound model-facing text while preserving IDs and explicit continuation."""
+import hashlib
+
+
+def folder_page(folders, limit=50, offset=0):
+    shown = []
+    for folder in folders[offset:offset + limit]:
+        name = str(folder.get("name") or "")
+        shown.append({**folder, "name": name[:400], "name_truncated": len(name) > 400})
+    more = len(folders) > offset + limit
+    return {"folders": shown, "folder_count": len(folders), "folders_returned": len(shown),
+            "has_more_folders": more, "next_folder_offset": offset + limit if more else None}
 
 
 def bounded_metadata(item):
@@ -28,6 +39,7 @@ def body_page(body, limit, offset=0):
     text = body[offset:offset + limit]
     more = offset + len(text) < len(body)
     return {"body": text, "body_characters": len(body), "body_offset": offset,
+            "body_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
             "body_offset_unit": "unicode_characters", "body_truncated": offset > 0 or more,
             "has_more_body": more, "next_body_offset": offset + len(text) if more else None}
 

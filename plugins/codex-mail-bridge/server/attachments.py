@@ -73,7 +73,7 @@ atexit.register(cleanup)
 
 def transfer(data, metadata, resolver, include_image=False):
     if not isinstance(data, bytes) or len(data) > MAX_BYTES:
-        raise BridgeError("Attachment exceeds the 10 MiB transfer limit or is unavailable.")
+        raise BridgeError("Attachment exceeds the 10 MiB transfer limit or is unavailable.", code="attachment_unavailable")
     name = str(metadata.get("name") or "attachment")[:512].replace("\x00", "")
     kind = mime_type(data, name, metadata.get("content_type", ""))
     digest = hashlib.sha256(data).hexdigest()
@@ -118,7 +118,8 @@ def resource_read(uri):
     expire_resources()
     record = _resources.get(uri)
     if record is None:
-        raise BridgeError("Attachment resource expired or is unknown. Request the attachment again.")
+        raise BridgeError("Attachment resource expired or is unknown. Request the attachment again.",
+                          code="resource_expired", next_action="get_attachment_again")
     # Recheck account/message/attachment scope on every deferred resource read.
     try:
         data, _ = record["resolver"]()
@@ -127,5 +128,6 @@ def resource_read(uri):
         raise
     if len(data) > MAX_BYTES or hashlib.sha256(data).hexdigest() != record["digest"]:
         remove_resource(uri)
-        raise BridgeError("Attachment changed. List and request it again.")
+        raise BridgeError("Attachment changed. List and request it again.", code="attachment_changed",
+                          next_action="list_attachments_again")
     return {"contents": [{"uri": uri, "mimeType": record["mimeType"], "blob": base64.b64encode(data).decode("ascii")}]}

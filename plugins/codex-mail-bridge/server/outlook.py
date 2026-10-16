@@ -10,7 +10,7 @@ import sys
 from accounts import BridgeError
 import attachments
 from mail_dates import resolve_range
-from mail_output import bounded_metadata, budget_bodies
+from mail_output import bounded_metadata, budget_bodies, folder_page
 
 NOTICE = ("Sign in and sync in classic Outlook first, then keep it running. Microsoft 365 subscription is not required. "
           "Searches are bounded and report scan_incomplete when partial. Outlook may fetch data "
@@ -44,9 +44,11 @@ def backend(operation, **arguments):
             env=powershell_environment())
         data = json.loads(result.stdout.lstrip("\ufeff"))
     except subprocess.TimeoutExpired:
-        raise BridgeError("Outlook did not respond. Check its security/access prompt or profile, then retry. Security settings are never changed.") from None
+        raise BridgeError("Outlook did not respond. Check its security/access prompt or profile, then retry. Security settings are never changed.",
+                          code="provider_timeout", retryable=True, next_action="check_client_then_retry") from None
     except (OSError, UnicodeError, ValueError):
-        raise BridgeError("Could not read Outlook. Open classic Outlook and check Windows PowerShell/script policy. No security policy is bypassed.") from None
+        raise BridgeError("Could not read Outlook. Open classic Outlook and check Windows PowerShell/script policy. No security policy is bypassed.",
+                          code="runtime_unavailable", next_action="check_runtime_compatibility") from None
     if result.returncode or not isinstance(data, dict) or not data.get("ok"):
         code = data.get("error") if isinstance(data, dict) else None
         explanations = {
@@ -61,8 +63,12 @@ def backend(operation, **arguments):
             "unsupported_attachment": "Only by-value attachments up to 10 MiB can be transferred; linked, OLE and embedded-message attachments are unsupported.",
             "attachment_changed": "Attachment changed or is outside this message/account. List it again.",
             "attachment_data_unavailable": "The Outlook provider did not expose the original attachment bytes within the size limit.",
+            "body_changed": "Message body changed between reads. Restart reading this message.",
         }
-        raise BridgeError(explanations.get(code, "Outlook access failed. Check the running classic profile and security prompt. Nothing was sent or changed."))
+        action = "narrow_filters_or_retry" if code == "candidate_scan_timeout" else "list_attachments_again" if code == "attachment_changed" else "restart_message_read" if code == "body_changed" else "check_client_status"
+        raise BridgeError(explanations.get(code, "Outlook access failed. Check the running classic profile and security prompt. Nothing was sent or changed."),
+                          code=code if code in explanations else "provider_unavailable",
+                          retryable=code == "candidate_scan_timeout", next_action=action)
     return data["result"]
 
 
@@ -82,7 +88,8 @@ def selection():
             raise ValueError()
         return {k: saved[k] for k in ("account_id", "fingerprint")}
     except FileNotFoundError:
-        raise BridgeError("No Outlook account selected. Discover accounts and explicitly select one first.") from None
+        raise BridgeError("No Outlook account selected. Discover accounts and explicitly select one first.",
+                          code="selection_required", next_action="discover_and_select_account") from None
     except (KeyError, TypeError, ValueError):
         raise BridgeError("Invalid local Outlook selection. Select an account again.") from None
 
@@ -115,21 +122,29 @@ def response(value):
     return {"source": "classic_outlook_object_model", "notice": NOTICE, **value}
 
 
-def status():
+def status(folder_limit=50, folder_offset=0):
     if not settings_path().is_file():
         return response({"configured": False, "next_step": "Discover Outlook accounts and explicitly select one."})
-    return response(backend("status", **selection()))
+    value = backend("status", **selection())
+    value.update(folder_page(value.pop("folders", []), folder_limit, folder_offset))
+    return response(value)
 
 
 def scan(*, query="", sender="", recipient="", folder_id="", after="", before="", field="any",
          limit=10, offset=0, scan_limit=1000, conversation_id="", body_limit=6000, attachment_query=None,
-         include_snippet=False, scan_offset=0, max_total_characters=24000, period="", time_zone="UTC"):
-    dates = resolve_range(after, before, period, time_zone)
+         include_snippet=False, scan_offset=0, max_total_characters=24000):
+    dates = resolve_range(after, before)
     include_body = bool(conversation_id or include_snippet or query and field != "subject")
     value = backend("scan", **selection(), folder_id=folder_id, after=dates["after"] or "", before=dates["before"] or "",
                     include_body=include_body, max_characters=body_limit, scan_limit=scan_limit,
                     conversation_id=conversation_id, scan_offset=scan_offset)
     matches = []
+    body_matching = bool(query and field in {"any", "body"})
+    recipient_matching = bool(recipient or query and field == "any")
+    attachment_matching = attachment_query is not None or bool(query and field == "any")
+    body_incomplete = sum(bool(m.get("body_truncated")) for m in value["messages"]) if body_matching else 0
+    metadata_incomplete = sum(bool(recipient_matching and m.get("recipients_truncated") or
+                                   attachment_matching and m.get("attachments_truncated")) for m in value["messages"])
     words = query.casefold().split()
     for message in value["messages"]:
         if sender.casefold() not in message["sender"].casefold() or recipient.casefold() not in message["recipients"].casefold():
@@ -152,7 +167,7 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
             body = message.pop("body", "")
             if include_snippet and attachment_query is None:
                 message["snippet"] = " ".join(body.split())[:280]
-            for key in ("body_characters", "body_offset", "body_offset_unit", "has_more_body", "next_body_offset"):
+            for key in ("body_characters", "body_offset", "body_offset_unit", "body_sha256", "has_more_body", "next_body_offset"):
                 message.pop(key, None)
         bounded_metadata(message)
     more = len(matches) > offset + limit
@@ -160,6 +175,11 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
     return response({"account": value["account"], "messages": shown, "returned": len(shown),
                      "has_more": more, "next_offset": offset + limit if more else None,
                      "scan_incomplete": value["scan_incomplete"], "scanned_messages": value["scanned_messages"],
+                     "match_evaluation_incomplete": bool(body_incomplete or metadata_incomplete),
+                     "search_incomplete": bool(value["scan_incomplete"] or body_incomplete or metadata_incomplete),
+                     "body_matching_truncated_messages": body_incomplete,
+                     "metadata_matching_truncated_messages": metadata_incomplete,
+                     "coverage_scope": "selected_local_store",
                      "scan_offset": scan_offset, "next_scan_offset": value.get("next_scan_offset"),
                      "scan_continuation_note": "Paginate matching results in this window first; then use next_scan_offset with offset 0 and identical filters. Mail changes can shift windows. Narrow dates/folders if time or offset limits are reached.",
                      "date_range": dates, **budget,
@@ -167,26 +187,27 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
 
 
 def search(query="", sender="", recipient="", folder_id="", after="", before="", field="any", limit=10, offset=0, scan_limit=1000,
-           include_snippet=False, scan_offset=0, period="", time_zone="UTC"):
+           include_snippet=False, scan_offset=0, body_search_limit=6000):
     return scan(query=query, sender=sender, recipient=recipient, folder_id=folder_id, after=after,
                 before=before, field=field, limit=limit, offset=offset, scan_limit=scan_limit,
-                include_snippet=include_snippet, scan_offset=scan_offset, period=period, time_zone=time_zone)
+                include_snippet=include_snippet, scan_offset=scan_offset, body_limit=body_search_limit)
 
 
 def search_attachments(query="", filename="", sender="", recipient="", folder_id="", after="", before="", limit=10, offset=0, scan_limit=1000,
-                       scan_offset=0, period="", time_zone="UTC"):
+                       scan_offset=0):
     value = scan(query=query, sender=sender, recipient=recipient, folder_id=folder_id, after=after,
                  before=before, field="subject", limit=limit, offset=offset, scan_limit=scan_limit,
-                 attachment_query=filename, scan_offset=scan_offset, period=period, time_zone=time_zone)
+                 attachment_query=filename, scan_offset=scan_offset)
     value["search_mode"] = "subject_and_attachment_metadata_only"
     value["attachment_search_note"] = "Bounded metadata scan only; refine subject/date/sender/filename filters. No body or file contents are read by this search."
     return value
 
 
-def read(message_id, max_characters=16000, body_offset=0):
+def read(message_id, max_characters=16000, body_offset=0, expected_body_sha256=None):
     if not re.fullmatch(r"[0-9A-Fa-f]{16,4096}", message_id):
         raise BridgeError("Use an Outlook message ID from search.")
-    value = backend("read", **selection(), message_id=message_id, max_characters=max_characters, body_offset=body_offset)
+    value = backend("read", **selection(), message_id=message_id, max_characters=max_characters, body_offset=body_offset,
+                    expected_body_sha256=expected_body_sha256 or "")
     bounded_metadata(value["message"])
     return response(value)
 

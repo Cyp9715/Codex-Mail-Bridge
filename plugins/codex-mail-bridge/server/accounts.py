@@ -15,7 +15,17 @@ from urllib.parse import unquote, urlsplit
 
 
 class BridgeError(Exception):
-    pass
+    def __init__(self, message, *, code="mail_access_failed", retryable=False, next_action=None):
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
+        self.next_action = next_action
+
+    def as_dict(self):
+        value = {"error": str(self), "code": self.code, "retryable": self.retryable}
+        if self.next_action:
+            value["next_action"] = self.next_action
+        return value
 
 
 def settings_path():
@@ -142,7 +152,8 @@ def selection():
             raise BridgeError("Account identity changed. Select it again before accessing mail.")
         return profile, account
     except FileNotFoundError:
-        raise BridgeError("No account selected. Discover profiles/accounts and explicitly select one first.") from None
+        raise BridgeError("No account selected. Discover profiles/accounts and explicitly select one first.",
+                          code="selection_required", next_action="discover_and_select_account") from None
     except (KeyError, TypeError, json.JSONDecodeError):
         raise BridgeError("Local selection file is invalid. Select an account again.") from None
 
@@ -192,6 +203,7 @@ def database():
     db = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3)
     try:
         db.row_factory = sqlite3.Row
+        db.create_function("casefold", 1, lambda value: str(value or "").casefold(), deterministic=True)
         db.execute("PRAGMA query_only = ON")
         deadline = time.monotonic() + 8
         db.set_progress_handler(lambda: int(time.monotonic() > deadline), 10000)

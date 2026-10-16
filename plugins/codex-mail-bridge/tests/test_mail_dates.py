@@ -1,53 +1,46 @@
-"""Calendar periods are deterministic and respect the user's date boundary."""
-from datetime import datetime, timezone
+"""Explicit date bounds are timezone-aware, precise and language-independent."""
 from pathlib import Path
 import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 from accounts import BridgeError
-from mail_dates import resolve_range
+from mail_dates import epoch_microseconds, resolve_range
 
 
-class CalendarTests(unittest.TestCase):
-    def test_since_month_includes_local_midnight(self):
-        value = resolve_range(after="2026-10-01", time_zone="+09:00")
+class DateBoundTests(unittest.TestCase):
+    def test_explicit_offset_normalizes_to_utc(self):
+        value = resolve_range(after="2026-10-01T00:00:00+09:00")
         self.assertEqual(value["after"], "2026-09-30T15:00:00+00:00")
         self.assertIsNone(value["before"])
 
-    def test_this_week_uses_local_date_and_monday(self):
-        # Sunday UTC is already Monday in Korea.
-        now = datetime(2026, 10, 11, 15, 30, tzinfo=timezone.utc)
-        value = resolve_range(period="this_week", time_zone="+09:00", now=now)
-        self.assertEqual(value["after"], "2026-10-11T15:00:00+00:00")
-        self.assertEqual(value["before"], "2026-10-18T15:00:00+00:00")
-        previous = resolve_range(period="last_week", time_zone="+09:00", now=now)
-        self.assertEqual(previous["before"], value["after"])
-        self.assertEqual(previous["after"], "2026-10-04T15:00:00+00:00")
+    def test_subday_range_and_equivalent_offsets(self):
+        value = resolve_range("2026-10-01T10:30:15-05:30", "2026-10-01T16:00:16Z")
+        self.assertEqual(value["after"], "2026-10-01T16:00:15+00:00")
+        self.assertEqual(value["before"], "2026-10-01T16:00:16+00:00")
+        with self.assertRaises(BridgeError):
+            resolve_range("2026-10-01T00:00:00+09:00", "2026-09-30T15:00:00Z")
 
-    def test_month_year_and_leap_boundaries(self):
-        for now, period, start, end in [
-            ("2027-01-01", "last_month", "2026-12-01", "2027-01-01"),
-            ("2026-12-16", "this_month", "2026-12-01", "2027-01-01"),
-            ("2024-03-01", "last_month", "2024-02-01", "2024-03-01"),
-        ]:
-            value = resolve_range(period=period, now=datetime.fromisoformat(now).replace(tzinfo=timezone.utc))
-            self.assertEqual(value["after"], start + "T00:00:00+00:00")
-            self.assertEqual(value["before"], end + "T00:00:00+00:00")
+    def test_legacy_date_only_is_utc_midnight(self):
+        value = resolve_range("2026-10-01", "2026-11-01")
+        self.assertEqual(value["after"], "2026-10-01T00:00:00+00:00")
+        self.assertEqual(value["before"], "2026-11-01T00:00:00+00:00")
+        self.assertEqual(value["bounds"], "inclusive_start_exclusive_end")
 
-    def test_negative_offset_and_exclusive_end(self):
-        value = resolve_range("2026-10-01", "2026-11-01", time_zone="-05:30")
-        self.assertEqual(value["after"], "2026-10-01T05:30:00+00:00")
-        self.assertEqual(value["before"], "2026-11-01T05:30:00+00:00")
+    def test_fractional_boundaries_do_not_use_float_rounding(self):
+        first = resolve_range("2026-10-01T00:00:00.000001Z")["after"]
+        base = resolve_range("2026-10-01")["after"]
+        self.assertEqual(epoch_microseconds(first) - epoch_microseconds(base), 1)
+        last = resolve_range("2026-10-01T00:00:00.999999Z")["after"]
+        self.assertEqual(epoch_microseconds(last) - epoch_microseconds(base), 999999)
 
-    def test_invalid_or_conflicting_ranges_fail_closed(self):
-        for arguments in ({"after": "2026-02-31"}, {"after": "2026-1-1"},
-                          {"after": "2026-10-02", "before": "2026-10-01"},
-                          {"after": "2026-10-01", "period": "this_week"},
-                          {"period": "unknown"}, {"time_zone": "+14:01"},
-                          {"time_zone": "+09:60"}, {"time_zone": "invalid-zone"}):
-            with self.subTest(arguments=arguments), self.assertRaises(BridgeError):
-                resolve_range(**arguments)
+    def test_invalid_or_ambiguous_bounds_have_machine_error(self):
+        for value in ("this week", "2026-02-31", "2026-1-1", "2026-10-01T10:00:00",
+                      "2026-10-01T24:00:00Z", "2026-10-01T00:00:00+09:99",
+                      "2026-10-01T00:00:00.1234567Z"):
+            with self.subTest(value=value), self.assertRaises(BridgeError) as error:
+                resolve_range(after=value)
+            self.assertEqual(error.exception.code, "invalid_date_range")
 
 
 if __name__ == "__main__":

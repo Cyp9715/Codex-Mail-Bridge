@@ -67,6 +67,10 @@ function New-CandidateFilter([string]$After = '', [string]$Before = '') {
     foreach ($pair in @(@($After, '>='), @($Before, '<'))) {
         if (-not $pair[0]) { continue }
         $utc = [DateTimeOffset]::Parse($pair[0], [Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+        # The provider's locale date literal has minute precision. Broaden the
+        # table filter, then apply exact bounds before counting candidates.
+        $floor = $utc.AddTicks(-($utc.Ticks % [TimeSpan]::TicksPerMinute))
+        $utc = if ($pair[1] -eq '<' -and $floor -ne $utc) { $floor.AddMinutes(1) } else { $floor }
         # DASL namespace comparisons are UTC, formatted with the user's culture.
         $literal = $utc.ToString('g', [Globalization.CultureInfo]::CurrentCulture).Replace("'", "''")
         $clauses += '"http://schemas.microsoft.com/mapi/proptag/0x0E060040" ' + $pair[1] + " '" + $literal + "'"
@@ -77,6 +81,8 @@ function New-CandidateFilter([string]$After = '', [string]$Before = '') {
 function Get-Candidates($Folders, [int]$Limit, [string]$FolderId, [string]$After = '', [string]$Before = '') {
     $candidates = @{}
     $filter = New-CandidateFilter $After $Before
+    $startUtc = if ($After) { [DateTimeOffset]::Parse($After, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime } else { $null }
+    $endUtc = if ($Before) { [DateTimeOffset]::Parse($Before, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime } else { $null }
     $watch = [Diagnostics.Stopwatch]::StartNew()
     foreach ($folder in $Folders) {
         if ($FolderId -and $folder.EntryID -cne $FolderId) { continue }
@@ -86,9 +92,11 @@ function Get-Candidates($Folders, [int]$Limit, [string]$FolderId, [string]$After
         $count = 0
         while (-not $table.EndOfTable -and $count -lt $Limit) {
             if ($watch.Elapsed.TotalSeconds -gt 20) { throw 'candidate_scan_timeout' }
-            $row = $table.GetNextRow(); $count++
+            $row = $table.GetNextRow()
             $id = [string]$row.Item('EntryID')
             $utc = [DateTime]::SpecifyKind([DateTime]$row.LocalTimeToUTC('ReceivedTime'), [DateTimeKind]::Utc)
+            if (-not (Test-TimeBounds $utc $startUtc $endUtc)) { continue }
+            $count++
             $candidates[$id] = [pscustomobject]@{ id = $id; date = $utc.ToString('o'); folder_id = [string]$folder.EntryID }
         }
         if ($candidates.Count -gt 2 * $Limit) {
@@ -98,6 +106,10 @@ function Get-Candidates($Folders, [int]$Limit, [string]$FolderId, [string]$After
         }
     }
     return @($candidates.Values | Sort-Object @{Expression='date'; Descending=$true}, id)
+}
+
+function Test-TimeBounds([DateTime]$Value, $After, $Before) {
+    return (($null -eq $After -or $Value -ge $After) -and ($null -eq $Before -or $Value -lt $Before))
 }
 
 function Get-ScopedItem($Session, $Store, $FolderIds, [string]$MessageId) {
@@ -119,6 +131,7 @@ function Get-BodySection([string]$Body, [int]$Limit, [int]$Offset = 0) {
     $text = if ($start -lt $Body.Length) { $Body.Substring($start, $end - $start) } else { '' }
     $more = $end -lt $Body.Length
     return @{ body = $text; body_characters = $Body.Length; body_offset = $start
+        body_sha256 = (Get-Digest $Body)
         body_offset_unit = 'utf16_code_units'; body_truncated = ($start -gt 0 -or $more)
         has_more_body = $more; next_body_offset = $(if ($more) { $end } else { $null }) }
 }
@@ -226,7 +239,9 @@ function Invoke-OutlookRequest($Request) {
     }
     if ($Request.operation -eq 'read') {
         $item = Get-ScopedItem $session $chosen.store $folderIds $Request.message_id
-        return @{ account = $chosen.address; message = Get-Message $item $true ([int]$Request.max_characters) ([int]$Request.body_offset) }
+        $message = Get-Message $item $true ([int]$Request.max_characters) ([int]$Request.body_offset)
+        if ($Request.expected_body_sha256 -and $message.body_sha256 -cne $Request.expected_body_sha256) { throw 'body_changed' }
+        return @{ account = $chosen.address; message = $message }
     }
     if ($Request.operation -in @('attachments', 'attachment')) {
         $item = Get-ScopedItem $session $chosen.store $folderIds $Request.message_id
@@ -247,8 +262,6 @@ function Invoke-OutlookRequest($Request) {
     foreach ($candidate in (Get-ScanWindow $candidates $offset $limit)) {
         if ($watch.Elapsed.TotalSeconds -gt 25) { break }
         $examined++
-        if ($Request.after -and $candidate.date -lt $Request.after) { continue }
-        if ($Request.before -and $candidate.date -ge $Request.before) { continue }
         $item = Get-ScopedItem $session $chosen.store $folderIds $candidate.id
         if ($Request.conversation_id -and [string]$item.ConversationID -cne $Request.conversation_id) { continue }
         $messages += Get-Message $item ([bool]$Request.include_body) ([int]$Request.max_characters)
@@ -264,7 +277,7 @@ if (-not $LibraryOnly) {
         $result = Invoke-OutlookRequest $request
         @{ ok = $true; result = $result } | ConvertTo-Json -Depth 12 -Compress
     } catch {
-        $known = @('selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed')
+        $known = @('selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed', 'body_changed')
         $code = if ($_.Exception.Message -in $known) { $_.Exception.Message } else { 'outlook_access_failed' }
         @{ ok = $false; error = $code } | ConvertTo-Json -Compress
     }

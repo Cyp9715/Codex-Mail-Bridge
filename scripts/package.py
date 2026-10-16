@@ -101,7 +101,7 @@ def main():
     source_files = plugin_files + [ROOT / name for name in (
         "README.md", "README.ko.md", "AGENTS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", ".gitignore",
         ".gitattributes", ".agents/plugins/marketplace.json", "scripts/package.py", "scripts/publication_guard.py",
-        "scripts/run_publication_guard.cjs")]
+        "scripts/run_publication_guard.cjs", "scripts/qa_host_handoff.py")]
     source_files += sorted((ROOT / ".githooks").glob("*"))
     source_files += sorted((ROOT / "scripts/tests").glob("test_*.py"))
     source_files += sorted((ROOT / "docs").glob("*.md"))

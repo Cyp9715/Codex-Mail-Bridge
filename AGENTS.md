@@ -25,3 +25,7 @@ Respect explicit per-client account selection and mailbox read-only behavior.
 No fixed mail/profile paths, unsolicited client/account switching, remote image
 fetches, mail security-policy changes, or attachment execution. Clearly distinguish
 planned attachment capabilities from implemented and tested runtime tools.
+
+For each versioned release, synchronize the portable manifest, compatibility
+manifest and MCP server versions, then create and push an immutable `v<version>`
+tag at that release commit. Preserve existing version tags.
