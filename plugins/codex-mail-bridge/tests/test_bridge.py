@@ -37,7 +37,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_no_implicit_selection(self):
         self.assertFalse(bridge.status()["configured"])
-        self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
+        self.assertFalse(bridge.call_operation("thunderbird_search", {})["ok"])
         self.assertFalse(accounts.settings_path().exists())
 
     def test_registered_absolute_profile_in_nonstandard_location(self):
@@ -138,9 +138,9 @@ class BridgeTests(unittest.TestCase):
 
     def test_explicit_time_bounds_filter_actual_index(self):
         self.select()
-        value = bridge.call_tool("thunderbird_search", {"after": "2026-10-12T00:00:00+09:00", "before": "2026-10-19T00:00:00+09:00"})
-        self.assertFalse(value["isError"])
-        self.assertEqual([m["id"] for m in json.loads(value["content"][0]["text"])["messages"]], [103])
+        value = bridge.call_operation("thunderbird_search", {"after": "2026-10-12T00:00:00+09:00", "before": "2026-10-19T00:00:00+09:00"})
+        self.assertTrue(value["ok"])
+        self.assertEqual([m["id"] for m in value["result"]["messages"]], [103])
         with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
             for mid, date in ((101, "2026-09-30T15:00:00+00:00"), (102, "2026-09-30T14:59:59+00:00")):
                 db.execute("UPDATE messages SET date=? WHERE id=?", (int(datetime.fromisoformat(date).timestamp() * 1_000_000), mid))
@@ -173,13 +173,13 @@ class BridgeTests(unittest.TestCase):
     def test_body_revision_cannot_silently_change_during_pagination(self):
         self.select()
         first = bridge.read(101)["message"]
-        self.assertFalse(bridge.call_tool("thunderbird_read", {"message_id": 101, "body_offset": 10, "expected_body_sha256": first["body_sha256"]})["isError"])
+        self.assertTrue(bridge.call_operation("thunderbird_read", {"message_id": 101, "body_offset": 10, "expected_body_sha256": first["body_sha256"]})["ok"])
         with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
             db.execute("UPDATE messagesText_content SET c0body=? WHERE docid=101", ("Changed synthetic body",))
             db.commit()
-        result = bridge.call_tool("thunderbird_read", {"message_id": 101, "body_offset": 10, "expected_body_sha256": first["body_sha256"]})
-        self.assertTrue(result["isError"])
-        self.assertEqual(json.loads(result["content"][0]["text"])["code"], "body_changed")
+        result = bridge.call_operation("thunderbird_read", {"message_id": 101, "body_offset": 10, "expected_body_sha256": first["body_sha256"]})
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"]["code"], "body_changed")
 
     def test_long_body_can_be_read_completely_in_small_sections(self):
         self.select()
@@ -189,9 +189,9 @@ class BridgeTests(unittest.TestCase):
             db.commit()
         pieces, offset = [], 0
         while True:
-            value = bridge.call_tool("thunderbird_read", {"message_id": 101, "body_offset": offset, "max_characters": 5000})
-            self.assertFalse(value["isError"])
-            item = json.loads(value["content"][0]["text"])["message"]
+            value = bridge.call_operation("thunderbird_read", {"message_id": 101, "body_offset": offset, "max_characters": 5000})
+            self.assertTrue(value["ok"])
+            item = value["result"]["message"]
             self.assertLessEqual(len(item["body"]), 5000)
             pieces.append(item["body"])
             if not item["has_more_body"]:
@@ -234,7 +234,7 @@ class BridgeTests(unittest.TestCase):
         self.select()
         prefs = self.profile["path"] / "prefs.js"
         prefs.write_text(prefs.read_text().replace("demo@example.test", "replacement@example.test"))
-        self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
+        self.assertFalse(bridge.call_operation("thunderbird_search", {})["ok"])
 
     def test_database_cannot_write(self):
         self.select()
@@ -284,7 +284,7 @@ class BridgeTests(unittest.TestCase):
             current = accounts.settings_path()
             current.parent.mkdir(parents=True)
             current.write_text("{}", encoding="utf-8")
-            self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
+            self.assertFalse(bridge.call_operation("thunderbird_search", {})["ok"])
 
     def test_explicit_settings_override_never_uses_previous(self):
         storage, _ = self.previous_selection()
@@ -294,7 +294,7 @@ class BridgeTests(unittest.TestCase):
             os.environ.pop("MAIL_BRIDGE_THUNDERBIRD_SETTINGS", None)
             os.environ["THUNDERBIRD_BRIDGE_SETTINGS"] = str(isolated)
             self.assertFalse(bridge.status()["configured"])
-            self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
+            self.assertFalse(bridge.call_operation("thunderbird_search", {})["ok"])
             self.assertFalse(isolated.exists())
 
     def test_invalid_inputs(self):
@@ -303,41 +303,31 @@ class BridgeTests(unittest.TestCase):
                            ("thunderbird_read", {}), ("thunderbird_read", {"message_id": "101"}),
                            ("thunderbird_select_account", {"profile_id": self.profile["id"], "account_id": "account1", "confirm": "true"}),
                            ("thunderbird_search", {"query": "x" * 401}), ("thunderbird_search", {"sql": "SELECT 1"})]:
-            self.assertTrue(bridge.call_tool(name, args)["isError"])
+            self.assertFalse(bridge.call_operation(name, args)["ok"])
         with self.assertRaises(accounts.BridgeError):
             bridge.search(after="2026-02-31")
 
-    def test_no_mail_write_tools_and_accurate_local_write_annotations(self):
-        names = {t["name"] for t in bridge.TOOLS}
+    def test_no_mail_write_operations_and_disclosed_local_side_effects(self):
+        names = {operation["name"] for operation in bridge.OPERATIONS}
         self.assertEqual(len(names), 19)
-        for tool in bridge.TOOLS:
-            a = tool["annotations"]
-            self.assertIs(a["destructiveHint"], False)
-            self.assertEqual(a["openWorldHint"], tool["name"].startswith("outlook_"))
-            self.assertEqual(a["readOnlyHint"], not tool["name"].endswith(("_select_account", "_get_attachment")))
+        for operation in bridge.OPERATIONS:
+            self.assertIs(operation["mailbox_write"], False)
+            expected = "selection" if operation["name"].endswith("_select_account") else "export" if operation["name"].endswith("_get_attachment") else "none"
+            self.assertEqual(operation["local_write"], expected)
         for name in ("thunderbird_send", "thunderbird_delete", "thunderbird_attachment"):
-            self.assertTrue(bridge.call_tool(name, {})["isError"])
+            self.assertFalse(bridge.call_operation(name, {})["ok"])
 
-    def test_launcher_stdio_and_utf8(self):
+    def test_local_launcher_is_one_shot_and_preserves_utf8(self):
         self.select()
-        requests = [
-            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
-            {"jsonrpc": "2.0", "method": "notifications/initialized"},
-            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "thunderbird_search", "arguments": {"query": "회의"}}},
-        ]
-        result = subprocess.run(["node", str(PLUGIN / "server/launch.cjs")],
-            input="\n".join(json.dumps(r) for r in requests) + "\n", capture_output=True, text=True,
-            encoding="utf-8", timeout=20, env=dict(os.environ))
+        result = subprocess.run(["node", str(PLUGIN / "scripts/mail_bridge.cjs"), "--call", "thunderbird_search", "--arguments-stdin"],
+            input=json.dumps({"query": "회의"}), capture_output=True, text=True,
+            encoding="utf-8", timeout=20, env={**os.environ, "MAIL_BRIDGE_PYTHON": sys.executable})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, "")
-        replies = [json.loads(line) for line in result.stdout.splitlines()]
-        self.assertEqual([r["id"] for r in replies], [1, 2, 3])
-        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.6.0"})
-        self.assertEqual(len(replies[1]["result"]["tools"]), 19)
-        hits = json.loads(replies[2]["result"]["content"][0]["text"])
-        self.assertEqual(hits["messages"][0]["id"], 101)
-
+        response = json.loads(result.stdout)
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["result"]["messages"][0]["id"], 101)
+        self.assertNotIn("jsonrpc", response)
 
 if __name__ == "__main__":
     unittest.main()

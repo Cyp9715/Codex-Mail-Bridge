@@ -11,8 +11,7 @@
         "path": "./plugins/codex-mail-bridge"
       },
       "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
+        "installation": "AVAILABLE"
       },
       "category": "Productivity"
     }

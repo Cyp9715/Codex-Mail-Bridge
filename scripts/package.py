@@ -72,6 +72,14 @@ def validate_manifests(manifest, overlay):
     interface = manifest["extensions"]["com.openai"]["interface"]
     if interface != overlay.get("interface") or manifest.get("description") != overlay.get("description"):
         raise ValueError("Portable/compatibility listing mismatch")
+    openai = manifest["extensions"]["com.openai"]
+    if openai.get("requires_local_executor") is not True or overlay.get("requires_local_executor") is not True:
+        raise ValueError("Local mail access must declare desktop execution")
+    for configuration in (manifest, openai, overlay):
+        if any(configuration.get(key) is not None for key in ("mcpServers", "apps", "hooks")):
+            raise ValueError("The skills-only release must not declare MCP servers, apps or hooks")
+    if len(interface["longDescription"]) > 4000:
+        raise ValueError("Listing description is too long")
     if len(interface["displayName"]) > 30 or len(interface["shortDescription"]) > 30:
         raise ValueError("Listing name/subtitle is too long")
     prompts = interface.get("defaultPrompt")
@@ -91,10 +99,13 @@ def main():
     overlay = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
     version = validate_manifests(manifest, overlay)
     # Include only known component directories and explicit top-level files.
+    for name in ("mcp.json", ".mcp.json", ".app.json", "hooks/hooks.json"):
+        if (PLUGIN / name).exists():
+            raise ValueError("The skills-only release contains a server/app/hook configuration")
     plugin_files = [PLUGIN / name for name in (
-        "plugin.json", "mcp.json", ".mcp.json", ".codex-plugin/plugin.json",
+        "plugin.json", ".codex-plugin/plugin.json",
         "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md")]
-    for name in ("server", "skills", "tests", "assets", "docs"):
+    for name in ("server", "scripts", "skills", "tests", "assets", "docs"):
         plugin_files += sorted(p for p in (PLUGIN / name).rglob("*")
                                if p.is_file() and "__pycache__" not in p.parts)
     plugin_files = sorted(set(plugin_files))

@@ -1,4 +1,4 @@
-// Portable stdio launcher. Never downloads runtimes or dependencies.
+// One-shot local CLI launcher. No MCP server, sockets or dependency downloads.
 const { spawn, spawnSync } = require('node:child_process');
 const path = require('node:path');
 const os = require('node:os');
@@ -23,7 +23,7 @@ if (!python) {
   process.exit(1);
 }
 const [command, args] = python;
-const child = spawn(command, [...args, '-B', '-u', path.join(__dirname, 'bridge.py'), ...process.argv.slice(2)],
+const child = spawn(command, [...args, '-B', '-u', path.join(__dirname, '..', 'server', 'bridge.py'), ...process.argv.slice(2)],
   { stdio: 'inherit', windowsHide: true, shell: false, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
 child.on('error', () => { process.stderr.write('Could not start Mail Bridge.\n'); process.exit(1); });
 child.on('exit', (code) => process.exit(code ?? 1));

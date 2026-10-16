@@ -1,8 +1,8 @@
 # Original attachment handoff
 
-Version 0.6.0 retains the original-file handoff introduced in 0.4.0. It supports
+Version 0.7.0 retains the original-file handoff introduced in 0.4.0. It supports
 Thunderbird local MIME caches and classic Outlook by-value attachments. There are
-six attachment tools, for 19 tools in total.
+six attachment operations, for 19 local CLI operations in total; no MCP server is used.
 The bridge does not parse PDF, Word, Excel, archives or other document contents,
 perform OCR, execute files, or upload files to an OpenAI Files API.
 
@@ -35,35 +35,25 @@ Thunderbird searches
 indexed filenames, which can omit inline images, stale entries or unindexed mail.
 An empty result does not establish absence from the complete mailbox.
 
-## What reaches Codex
+## What reaches GPT and the host
 
-The get tool writes the exact original bytes into a random private temporary
-directory chosen by the OS, using a generated basename rather than a mail-provided
-path. The result includes its absolute `local_path`, original display name, byte
-count, SHA-256 and an opaque MCP resource link. Codex can use its existing local
-file tools on this path; native document handling depends on the host. A resource
-link alone is not a cloud upload receipt or proof that GPT analyzed a document.
+Get writes the exact original bytes to a generated private local export path,
+returning name, byte count, SHA-256, content type and export ID. No MCP resources,
+base64 text, typed image pixels or document text are emitted by the CLI.
+The host's authorized file tools read selected originals; its image tool can view
+requested inline images. A local path is not proof of analysis or cloud upload.
 
-PNG, JPEG, GIF and WebP signatures produce typed MCP image content only when
-`include_image:true` is requested for visual analysis. The default false delivers
-the exact original file without image-token use.
-Raw file bytes are **not** dumped into ordinary JSON/base64 text or embedded blob
-content in the get response. A host that supports binary MCP resources can explicitly
-call `resources/read`; that returns the original blob and rechecks scope/identity.
-`resources/list` is empty so automatic discovery cannot expose past filenames.
+Exports survive process exit. They default to `exports/` under the private settings
+directory, with an optional local `MAIL_BRIDGE_EXPORT_ROOT` override. At most 16
+files are retained, up to 10 MiB each. Later exports or `--cleanup` remove managed
+files older than 10 minutes; the next export can evict the oldest managed file.
+Run sequentially, consume each batch, then `--release <export_id>` for each finished
+file. The CLI never recursively deletes arbitrary paths, and refuses/skips linked
+export roots or children. Locked files or no later cleanup can leave copies.
 
-Exports/resources expire after 10 minutes, checked on subsequent transfer/resource
-requests, and normal process exit attempts cleanup. At most 16 exports are retained.
-A crash, locked file or lack of later requests can leave files in the OS temporary
-directory. Remove only the returned files and their generated empty directories
-when no longer needed. No recursive cleanup of user-supplied paths is implemented.
-Already handed-off files, host copies and chat history cannot be recalled by switching
-accounts. Treat originals and their paths as confidential runtime data.
-
-The mailbox remains read-only. Get tools declare `readOnlyHint:false` and
-`idempotentHint:false` because they create temporary local copies, not because they
-modify mail. Selection tools write private bridge settings; other mail tools do
-not write mailbox files. No document-parser dependencies are added.
+The mailbox remains read-only. Selection changes only private bridge settings;
+get creates selected original copies. Switching accounts cannot recall previously
+exported files or host/chat copies. No document-parser dependencies are added.
 
 ## Client adapters and limits
 
@@ -109,19 +99,14 @@ bridge never weakens Outlook or organizational security settings.
 
 ## Verification
 
-Synthetic tests cover metadata-only searches, no body-column access, no MIME/file
-reads during search, listing without decoding payloads, duplicate names, original
-byte/hash equality, typed images and opt-out, mbox/maildir, absolute/Unicode/nested
-paths, invalid/changed/out-of-scope IDs, encrypted/malformed/oversized inputs,
-expiry/cleanup and stdio `search → list → get → resources/read`. Synthetic PowerShell
-objects verify that listing reads no bytes and get accesses only one file, plus
-scope, protection, type, size and modification checks.
+Synthetic tests cover metadata-only search, listing without payload decoding,
+duplicate names, byte/hash equality, mbox/maildir/custom paths, input/scope/change
+and protection limits, plus CLI search/list/get, survival after process exit,
+host-side file reading and explicit release. No binary bytes or image pixels are
+returned as JSON. Expiry, retention, cross-process storage and nonrecursive cleanup
+have synthetic coverage. PowerShell scope tests use synthetic COM objects.
 
-These are generated-file/unit/stdio tests. Attachment get has not yet been verified
-against a live Outlook provider or installed Codex MCP session, nor on another PC.
-Previous live Office 2019 body/search evidence does not establish attachment support
-in every provider. Public review recordings must use isolated synthetic mail.
-
-See [MCP tool content](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
-and [publication controls](DEVELOPMENT_SECURITY.md). Local file access, typed image
-delivery, host document analysis and public-directory approval are distinct outcomes.
+Native Outlook provider attachment get, an installed desktop plugin session and
+another PC are unverified. Earlier Office 2019 body/search evidence does not prove
+all attachment/provider behavior. See [CLI contract](CLI.md),
+[verification evidence](../plugins/codex-mail-bridge/docs/REVIEW.md) and [publication controls](DEVELOPMENT_SECURITY.md).

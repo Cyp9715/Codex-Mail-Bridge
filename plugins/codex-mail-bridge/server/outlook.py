@@ -252,6 +252,6 @@ def source_attachment(message_id, attachment_id):
     return data, {**value["attachment"], "account": value["account"], "source": "classic_outlook_object_model"}
 
 
-def get_attachment(message_id, attachment_id, include_image=False):
+def get_attachment(message_id, attachment_id):
     data, meta = source_attachment(message_id, attachment_id)
-    return attachments.transfer(data, meta, lambda: source_attachment(message_id, attachment_id), include_image)
+    return attachments.transfer(data, meta)

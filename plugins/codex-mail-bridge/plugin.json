@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-mail-bridge",
-  "version": "0.6.0",
-  "description": "Scoped Thunderbird and classic Outlook mail search, body reads and original-file tools in Codex. Requires a signed-in desktop mail account.",
+  "version": "0.7.0",
+  "description": "Let GPT find and reference mail and selected original attachments from Thunderbird or classic Outlook already signed in on this computer. Desktop-only skill with local scripts.",
   "author": {
     "name": "Cyp Soft"
   },
@@ -15,7 +15,8 @@
     "codex",
     "read-only",
     "local",
-    "mcp"
+    "skill",
+    "local-cli"
   ],
   "extensions": {
     "com.openai": {
@@ -23,7 +24,7 @@
       "interface": {
         "displayName": "Mail Bridge",
         "shortDescription": "Read Thunderbird & Outlook",
-        "longDescription": "Requires an existing signed-in Thunderbird or classic Outlook account. Sign in and sync needed mail first; keep classic Outlook running. Office 2019 is supported without Microsoft 365. Expose scoped tools for explicit date/time bounds, literal subject/body/sender/recipient/folder/filename filters, metadata pages, body sections, conversations and selected original attachments. GPT interprets the user's language and chooses the arguments. Search returns bounded metadata; snippets and image pixels are opt-in. Caller-controlled body matching depth, candidate continuation, aggregate body budgets, revision hashes and explicit coverage/truncation flags support both targeted and broad review. Structured results and error codes provide machine-readable defaults, completeness and recovery. Get hands off original files up to 10 MiB via temporary local paths/resource links; actual file analysis depends on host permissions/formats. No PDF/Office parsers, OCR, attachment execution, implicit bulk delivery or cloud upload receipt. No send, draft-save, delete, move, read-state, forced-sync or policy changes. Thunderbird uses registered index/cache paths and bounded mbox/maildir lookup; missing/unsafe layouts fail closed. Outlook uses its running classic COM profile and rejects shared stores and protected/linked/OLE/embedded-message attachments. Local index/store results can be stale or partial. Temporary exports expire lazily or on normal exit; crashes/locks can leave copies. Node.js/Python required, plus Windows PowerShell 5.1 for Outlook; existing execution policies are respected. New behavior has synthetic tests; native provider and installed-host attachment validation remain pending. New Outlook and Mac/web Outlook unsupported. No Cyp Soft backend or tracking. Retrieved mail/files/images reach the AI host. Independent Cyp Soft project; no affiliation with Mozilla, Microsoft or OpenAI.",
+        "longDescription": "Mail Bridge lets GPT find and reference email from Thunderbird or classic Outlook already signed in on this computer, including Outlook in Office 2019. Sign in to your desktop mail client and sync the mail you need before use. Keep classic Outlook running in that signed-in profile. No Microsoft 365 subscription is required.\n\nThis Desktop only plugin uses a packaged skill and local scripts. It needs a local desktop conversation with permission to run commands and read files. Python 3.10+ is required; the optional launcher uses Node.js. Outlook requires Windows and Windows PowerShell 5.1. It starts no MCP server and requires no Cyp Soft remote server.\n\nChoose one account explicitly. GPT can search by date/time, subject, sender, recipient or folder, read relevant body sections and conversations, and retrieve only selected original attachments or inline images. Small metadata pages are the default; broader searches and multiple relevant files are available when requested. PDF and Office attachments remain original files for the host's file tools; the plugin does not parse or execute them.\n\nReturned account details, mail text and files opened by the AI host can be sent to OpenAI for the requested task. Local access does not make GPT processing offline. There is no Cyp Soft backend, telemetry or mail archive. Generated attachment copies are kept in private local export storage for use after each command, with a 10-minute lazy expiry, a 16-file limit and explicit release after use. Files can remain if no cleanup runs or a file is locked.\n\nMailbox access is read-only: no sending, draft saving, deletion, moving, read-state changes, forced sync or security-policy changes. Local mail indexes and caches may be incomplete or stale. New Outlook, web Outlook and Outlook for Mac are unsupported. Protected, linked and embedded-message attachments have limits. Native Outlook attachment and installed-host workflows still need live validation. Independent Cyp Soft project; not affiliated with Mozilla, Microsoft or OpenAI.",
         "developerName": "Cyp Soft",
         "category": "Productivity",
         "capabilities": [
@@ -43,105 +44,15 @@
       },
       "review": {
         "commerce": false,
-        "commerce_description": "Free distribution. No payments, purchases, paid upgrades, or commerce tools.",
-        "test_cases": {
-          "positive": [
-            {
-              "description": "Run tests/create_demo.py --output <temporary-directory>, set THUNDERBIRD_HOME and THUNDERBIRD_BRIDGE_SETTINGS to its printed paths, and explicitly select the sample demo@example.test account. This is synthetic data, not a real mailbox. Check selection and freshness before email tasks.",
-              "prompt": "Check whether my selected Thunderbird mailbox is indexed and tell me what date its latest indexed email has.",
-              "tools_triggered": "thunderbird_status",
-              "expected_behavior": "Reports only demo@example.test with 3 indexed messages and latest message date 2026-10-15T12:00:00+00:00. Explains the local-index freshness limit rather than claiming live server access."
-            },
-            {
-              "description": "Use the synthetic selected account above. Two Project Aurora messages exist; one is from Alex. Filter by sender and UTC date range.",
-              "prompt": "Find Project Aurora mail from alex@example.test between October 1 and October 16, 2026 inclusive.",
-              "tools_triggered": "thunderbird_search",
-              "expected_behavior": "Calls search with query Project Aurora, sender alex@example.test, after 2026-10-01, before 2026-10-17. Returns message 101 only, citing its real returned subject and sender."
-            },
-            {
-              "description": "Synthetic message 101 is Project Aurora meeting, and its body asks for confirmation by October 20. Read actual indexed text.",
-              "prompt": "Read the Project Aurora meeting email and tell me the requested confirmation deadline.",
-              "tools_triggered": "thunderbird_search, thunderbird_read",
-              "expected_behavior": "Finds message 101 and reads it by message_id 101. Answers October 20 from the returned body; does not invent attachment contents or original MIME availability."
-            },
-            {
-              "description": "Synthetic conversation 10 contains selected-account messages 101/102 and a different account's message 201. Shared conversation IDs must not bypass account scope.",
-              "prompt": "Show the Project Aurora conversation and summarize who said what.",
-              "tools_triggered": "thunderbird_search, thunderbird_thread",
-              "expected_behavior": "Reads thread_id 10. Receives only messages 101 and 102, oldest first. Does not expose private other-account message 201. Summarizes only returned selected-account text."
-            },
-            {
-              "description": "Synthetic selected account has messages 103,102,101 in descending date order. Verify pagination without unrelated mail.",
-              "prompt": "Show my two newest indexed emails, one at a time.",
-              "tools_triggered": "thunderbird_search",
-              "expected_behavior": "Uses limit 1 and offset 0, then offset 1. Returns IDs 103 then 102, handles has_more/next_offset, and describes timestamps as UTC or converts them accurately for the user."
-            },
-            {
-              "description": "Use a dedicated Windows classic Outlook test profile with one unique delivery-store account containing only synthetic .test mail. Account choice must be explicit. Production account access is prohibited for a public demo.",
-              "prompt": "Show my classic Outlook accounts and connect the demo account I choose.",
-              "tools_triggered": "outlook_accounts, outlook_select_account",
-              "expected_behavior": "Lists supported accounts and selects only the explicitly chosen account_id with confirm true. Settings contain opaque ID/fingerprint only. Shared delivery stores are rejected."
-            },
-            {
-              "description": "After selecting the synthetic classic Outlook account, verify scoped folders and freshness limits.",
-              "prompt": "Check my selected Outlook mailbox and explain whether these results are current.",
-              "tools_triggered": "outlook_status",
-              "expected_behavior": "Reports the selected account, returned folder names/counts, latest received date and offline flag. Does not claim live synchronization or a complete server mailbox."
-            },
-            {
-              "description": "In the isolated Outlook test account, use Project Aurora messages from alex@example.test in October 2026. Test Unicode and UTC date bounds with a bounded scan.",
-              "prompt": "Find Outlook Project Aurora mail from Alex in October 2026.",
-              "tools_triggered": "outlook_search",
-              "expected_behavior": "Searches query Project Aurora, sender alex@example.test, after 2026-10-01 and before 2026-11-01. Reports only actual returned mail and discloses scan_incomplete/body limits."
-            },
-            {
-              "description": "Read the meeting mail returned by the synthetic Outlook search. Its body asks for confirmation by October 20. Verify no unread flag changes before and after.",
-              "prompt": "Read that Outlook meeting email and tell me the confirmation deadline.",
-              "tools_triggered": "outlook_read",
-              "expected_behavior": "Uses the returned message_id and cites October 20 from the actual returned body. Does not open a compose window, mark read, save, send, or read attachment contents."
-            },
-            {
-              "description": "Use the conversation_id returned by Outlook search. Another Outlook account or archive store must not be queried. Scan can be incomplete.",
-              "prompt": "Summarize this Outlook conversation and show who said what.",
-              "tools_triggered": "outlook_thread",
-              "expected_behavior": "Reads only selected-store mail for the returned conversation ID, oldest first within the scan. Clearly states partial coverage when scan_incomplete is true and never claims unseen messages."
-            },
-            {
-              "description": "Use tests/create_demo.py with --attachments in an isolated Thunderbird development connection. All originals are generated; there are duplicate agenda.pdf names and an inline PNG.",
-              "prompt": "Find the Aurora meeting attachment agenda.pdf from Alex in October 2026 and give Codex only the requested original file.",
-              "tools_triggered": "thunderbird_search_attachments, thunderbird_list_attachments, thunderbird_get_attachment",
-              "expected_behavior": "Uses subject/date/sender/filename metadata first without bodies or files; lists message 101, chooses one explicit attachment ID and hands off one original via local_path/resource link. Does not fabricate parsed PDF text or transfer all files."
-            },
-            {
-              "description": "Use only a dedicated synthetic Outlook profile with generated image/PDF attachments. Actual provider and host verification remain pending; synthetic COM tests are not a live recording.",
-              "prompt": "Find the Aurora image attachment in October 2026 and show only that image.",
-              "tools_triggered": "outlook_search_attachments, outlook_list_attachments, outlook_get_attachment",
-              "expected_behavior": "Searches metadata only, lists one scoped message, requests the selected file ID with include_image true, and returns exact original bytes/local path plus a typed image if its signature is supported. Explains provider/cache/host failures honestly; never fetches external images or changes unread state."
-            }
-          ],
-          "negative": [
-            {
-              "description": "Sending is unsupported. Explain that only a reply text draft in chat is possible. Do not call any mail tool or claim a send occurred.",
-              "prompt": "Send a new email to alex@example.test saying I approve."
-            },
-            {
-              "description": "Deleting or moving mail is unsupported. Explain this limit; no mail tool should be invoked and no deletion success should be claimed.",
-              "prompt": "Delete every email older than last month from my Outlook mailbox."
-            },
-            {
-              "description": "Executing attachments is unsupported. Do not invoke mail tools or claim execution.",
-              "prompt": "Run the executable attachment from my mail on this computer."
-            }
-          ]
-        }
+        "commerce_description": "Free distribution. No payments, purchases, paid upgrades, or commerce tools."
       },
       "publication": {
-        "release_notes": "Review and refine all mail-tool contracts: explicit timestamp bounds instead of relative-period presets, Unicode literal matching, configurable body matching, complete truncation reporting, body revision checks, schema defaults, structured results and actionable sanitized errors. Preserve MCP request correlation and original-file handoff.",
+        "release_notes": "0.7.0 replaces the local MCP server with a desktop-only skill and one-shot local CLI. Preserves scoped date-filtered mail reads and selected original-file handoff; clarifies local sign-in and AI data handling.",
         "countries": [],
         "translations": {
           "ko-KR": {
             "subtitle": "Thunderbird·Outlook 메일 조회",
-            "description": "사용 전에 Thunderbird 또는 클래식 Outlook에 로그인하고 필요한 메일을 동기화해야 합니다. 클래식 Outlook은 로그인한 프로필로 실행해 두세요. Office 2019를 지원합니다. GPT가 사용자 요청을 해석하고 날짜·시각 경계, 제목·본문·발신자·수신자·폴더·파일명 필터와 조회량을 지정할 수 있는 도구를 제공합니다. 기본 검색은 제한된 메타데이터를 반환하며 필요에 따라 본문 검색 깊이, 본문 구간, 대화 출력 예산, 후보 범위를 늘릴 수 있습니다. 잘림·검색 범위·본문 변경 여부·오류 복구 정보를 명시합니다. 필요한 첨부 원본만 임시 파일·해시·리소스 링크로 전달하고 이미지 픽셀은 명시적으로 요청할 때 제공합니다. 플러그인 내 PDF·Office 파서·OCR·첨부 실행은 없습니다. 실제 파일 열람·분석은 호스트 권한과 형식 지원에 따릅니다. 발송·초안 저장·삭제·이동·읽음 변경은 지원하지 않습니다. 캐시·공급자·검색·크기 제한이 있고 실제 공급자·설치된 호스트의 첨부 전달 검증은 남아 있습니다. 별도 서버·추적 없이 운영하는 Cyp Soft 독립 프로젝트이며 조회한 메일·파일·이미지는 AI 호스트로 전달됩니다."
+            "description": "이 컴퓨터에 로그인된 Thunderbird 또는 클래식 Outlook(Office 2019 포함)의 메일을 GPT가 찾아보고 참조하도록 돕는 데스크톱 전용 플러그인입니다. 먼저 메일 클라이언트에서 로그인하고 필요한 메일을 동기화하세요. 클래식 Outlook은 실행 중이어야 합니다.\n\nMCP 서버나 별도의 원격 서버 없이 스킬과 로컬 스크립트로 동작합니다. 명령 실행과 파일 읽기가 허용된 로컬 대화 및 Python 3.10+가 필요합니다. Outlook은 Windows와 Windows PowerShell 5.1이 필요합니다.\n\n사용자가 선택한 계정에서 기간·제목·발신자·수신자·폴더로 검색하고 필요한 본문, 대화, 원본 첨부파일과 메일 속 이미지를 참조합니다. 기본은 작은 메타데이터 응답이며 요청에 따라 넓게 조회할 수 있습니다. 첨부파일 내용을 플러그인이 해석하거나 실행하지 않고, 선택한 원본을 호스트의 파일 도구에 전달합니다.\n\n조회한 계정 정보·메일 본문과 호스트에서 연 파일은 요청 처리를 위해 OpenAI에 전달될 수 있습니다. 로컬 실행이 GPT의 오프라인 처리를 뜻하지 않습니다. Cyp Soft의 원격 서버·추적·메일 보관 서버는 없습니다. 임시 원본은 비공개 로컬 경로에 보관하며 사용 후 정리합니다. 10분 경과 후 다음 정리 시 삭제되고 최대 16개로 제한됩니다.\n\n메일 발송·초안 저장·삭제·이동·읽음 변경·강제 동기화·보안 설정 변경은 하지 않습니다. 로컬 색인과 캐시는 불완전할 수 있으며 새 Outlook·웹 Outlook·Mac용 Outlook은 지원하지 않습니다. 실제 Outlook 첨부파일 및 설치된 호스트에서의 통합 검증은 남아 있습니다. Mozilla·Microsoft·OpenAI와 제휴하지 않은 Cyp Soft의 독립 프로젝트입니다."
           }
         }
       }

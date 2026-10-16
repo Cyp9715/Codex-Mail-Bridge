@@ -27,5 +27,5 @@ fetches, mail security-policy changes, or attachment execution. Clearly distingu
 planned attachment capabilities from implemented and tested runtime tools.
 
 For each versioned release, synchronize the portable manifest, compatibility
-manifest and MCP server versions, then create and push an immutable `v<version>`
+manifest and local runtime versions, then create and push an immutable `v<version>`
 tag at that release commit. Preserve existing version tags.

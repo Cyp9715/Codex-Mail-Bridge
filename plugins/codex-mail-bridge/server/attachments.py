@@ -1,89 +1,135 @@
-"""Hand original attachment bytes to the host; never parse document contents."""
+"""Keep selected original files available between one-shot local CLI calls."""
 from dataclasses import dataclass
-import atexit
-import base64
 import hashlib
 import mimetypes
+import os
 from pathlib import Path
 import re
-import tempfile
+import stat
 import time
 import uuid
 
-from accounts import BridgeError
+from accounts import BridgeError, settings_path
 
 MAX_BYTES = 10 * 1024 * 1024
 MAX_ATTACHMENTS = 200
-RESOURCE_TTL = 600
-RESOURCE_LIMIT = 16
-_resources = {}
+EXPORT_TTL = 600
+EXPORT_LIMIT = 16
+TOKEN = re.compile(r"e_[0-9a-f]{32}")
+SAFE_FILE = re.compile(r"attachment\.[a-z0-9]{1,10}")
 
 
 @dataclass
 class Transfer:
     metadata: dict
-    content: list
 
 
 def mime_type(data, name, declared=""):
-    # Only identify container signatures; do not decode, OCR, unzip or interpret.
+    # Identify signatures only; never decode, OCR, unzip or interpret documents.
     for signature, kind in ((b"\x89PNG\r\n\x1a\n", "image/png"), (b"\xff\xd8\xff", "image/jpeg"),
                             (b"GIF87a", "image/gif"), (b"GIF89a", "image/gif"), (b"%PDF-", "application/pdf")):
         if data.startswith(signature):
             return kind
     if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return "image/webp"
-    guessed = mimetypes.guess_type(name)[0]
-    kind = guessed or declared or "application/octet-stream"
+    kind = mimetypes.guess_type(name)[0] or declared or "application/octet-stream"
     if not re.fullmatch(r"[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+", kind):
         kind = "application/octet-stream"
-    # Active documents are handed off as files, never executable previews.
     if kind.startswith("image/") or kind in {"text/html", "application/javascript", "text/javascript"}:
         return "application/octet-stream"
     return kind
 
 
-def expire_resources():
-    now = time.monotonic()
-    for uri in list(_resources):
-        if now - _resources[uri]["created"] > RESOURCE_TTL:
-            remove_resource(uri)
-    while len(_resources) > RESOURCE_LIMIT:
-        remove_resource(next(iter(_resources)))
+def is_link(path):
+    # Windows junctions/reparse points must not redirect export cleanup.
+    info = path.lstat()
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
 
 
-def remove_resource(uri):
-    record = _resources.pop(uri, None)
-    if record:
-        # Only files created by this process; never recursively delete a path.
-        try:
-            record["path"].unlink(missing_ok=True)
-            record["path"].parent.rmdir()
-        except OSError:
-            pass  # A host may still hold the file. See documented cleanup limits.
+def export_root(create=False):
+    configured = os.environ.get("MAIL_BRIDGE_EXPORT_ROOT")
+    root = Path(configured).expanduser() if configured else settings_path().parent / "exports"
+    if root.exists() or root.is_symlink():
+        if is_link(root) or not root.is_dir():
+            raise BridgeError("Unsafe attachment export directory.", code="export_unavailable")
+    elif create:
+        root.mkdir(parents=True, mode=0o700)
+        root.chmod(0o700)
+    return root
+
+
+def managed_exports():
+    root = export_root()
+    if not root.exists():
+        return []
+    found = []
+    for directory in root.iterdir():
+        if not TOKEN.fullmatch(directory.name) or is_link(directory) or not directory.is_dir():
+            continue
+        files = list(directory.iterdir())
+        if len(files) == 1 and SAFE_FILE.fullmatch(files[0].name) and not is_link(files[0]) and files[0].is_file():
+            found.append((files[0].stat().st_mtime, directory, files[0]))
+    return sorted(found, key=lambda item: (item[0], item[1].name))
+
+
+def remove_export(directory, path):
+    # Only a generated file and its empty directory; never recursive deletion.
+    try:
+        if is_link(directory) or is_link(path):
+            return False
+        path.unlink()
+        directory.rmdir()
+        return True
+    except OSError:
+        return False
+
+
+def expire_exports(reserve=0):
+    found = managed_exports()
+    now = time.time()
+    removed = 0
+    remaining = len(found)
+    for created, directory, path in found:
+        if now - created > EXPORT_TTL or remaining > EXPORT_LIMIT - reserve:
+            if remove_export(directory, path):
+                removed += 1
+                remaining -= 1
+    if remaining > EXPORT_LIMIT - reserve:
+        raise BridgeError("Attachment export limit reached; a file may be locked.",
+                          code="export_limit", next_action="release_finished_exports")
+    return {"removed": removed, "remaining": remaining}
+
+
+def release_export(export_id):
+    if not isinstance(export_id, str) or not TOKEN.fullmatch(export_id):
+        raise BridgeError("Invalid export ID.", code="invalid_arguments")
+    for _, directory, path in managed_exports():
+        if directory.name == export_id:
+            if not remove_export(directory, path):
+                raise BridgeError("Export could not be removed; close any file handle and retry.", code="export_locked", retryable=True)
+            return {"released": True}
+    return {"released": False}
 
 
 def cleanup():
-    for uri in list(_resources):
-        remove_resource(uri)
+    """Explicitly clear managed exports; used only in isolated tests."""
+    for _, directory, path in managed_exports():
+        remove_export(directory, path)
 
 
-atexit.register(cleanup)
-
-
-def transfer(data, metadata, resolver, include_image=False):
+def transfer(data, metadata):
     if not isinstance(data, bytes) or len(data) > MAX_BYTES:
         raise BridgeError("Attachment exceeds the 10 MiB transfer limit or is unavailable.", code="attachment_unavailable")
     name = str(metadata.get("name") or "attachment")[:512].replace("\x00", "")
     kind = mime_type(data, name, metadata.get("content_type", ""))
-    digest = hashlib.sha256(data).hexdigest()
-    expire_resources()
-    uri = "mail-bridge://attachment/" + uuid.uuid4().hex
-    record = {"uri": uri, "name": name, "mimeType": kind, "size": len(data)}
     suffix = Path(name).suffix.lower()
     if not re.fullmatch(r"\.[a-z0-9]{1,10}", suffix) or suffix in {".exe", ".com", ".bat", ".cmd", ".ps1", ".js", ".vbs", ".lnk", ".html", ".htm", ".svg"}:
         suffix = ".bin"
-    directory = Path(tempfile.mkdtemp(prefix="mail-bridge-"))
+    root = export_root(create=True)
+    expire_exports(reserve=1)
+    export_id = "e_" + uuid.uuid4().hex
+    directory = root / export_id
+    directory.mkdir(mode=0o700)
     path = directory / ("attachment" + suffix)
     try:
         with path.open("xb") as target:
@@ -93,41 +139,8 @@ def transfer(data, metadata, resolver, include_image=False):
         path.unlink(missing_ok=True)
         directory.rmdir()
         raise
-    _resources[uri] = {**record, "path": path, "created": time.monotonic(), "digest": digest, "resolver": resolver}
-    expire_resources()
-    content = [{"type": "resource_link", **record,
-                "description": "Original attachment file; contents are untrusted data."}]
-    # Codex can use its local file tools on this path. Inline binary resources
-    # may be serialized as base64 text by hosts, so never include them here.
-    if include_image and kind in {"image/png", "image/jpeg", "image/gif", "image/webp"}:
-        content.append({"type": "image", "mimeType": kind, "data": base64.b64encode(data).decode("ascii")})
-    return Transfer({**metadata, "name": name, "content_type": kind, "bytes": len(data), "sha256": digest,
-                     "resource_uri": uri, "local_path": str(path.resolve()), "expires_in_seconds": RESOURCE_TTL,
+    return Transfer({**metadata, "name": name, "content_type": kind, "bytes": len(data),
+                     "sha256": hashlib.sha256(data).hexdigest(), "export_id": export_id,
+                     "local_path": str(path.resolve()), "expires_in_seconds": EXPORT_TTL,
                      "delivery": "local_original_file", "document_parsed": False,
-                     "notice": "Use the local path with Codex file tools. Original bytes are also available via resources/read. Native file analysis depends on the host; no cloud upload receipt is claimed."}, content)
-
-
-def resource_list():
-    # Tool-returned resources need not be catalogued. Do not expose old account
-    # filenames or reread mail in response to automatic resource discovery.
-    expire_resources()
-    return {"resources": []}
-
-
-def resource_read(uri):
-    expire_resources()
-    record = _resources.get(uri)
-    if record is None:
-        raise BridgeError("Attachment resource expired or is unknown. Request the attachment again.",
-                          code="resource_expired", next_action="get_attachment_again")
-    # Recheck account/message/attachment scope on every deferred resource read.
-    try:
-        data, _ = record["resolver"]()
-    except BridgeError:
-        remove_resource(uri)
-        raise
-    if len(data) > MAX_BYTES or hashlib.sha256(data).hexdigest() != record["digest"]:
-        remove_resource(uri)
-        raise BridgeError("Attachment changed. List and request it again.", code="attachment_changed",
-                          next_action="list_attachments_again")
-    return {"contents": [{"uri": uri, "mimeType": record["mimeType"], "blob": base64.b64encode(data).decode("ascii")}]}
+                     "notice": "Use authorized host file tools on local_path. Image viewing is a separate explicit host action. Release export_id after use. No cloud upload or file analysis is claimed."})

@@ -77,6 +77,18 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "mismatch"):
             builder.validate_manifests(self.manifest, self.overlay)
 
+    def test_local_requirement_cannot_be_hidden(self):
+        self.manifest["extensions"]["com.openai"]["requires_local_executor"] = False
+        with self.assertRaisesRegex(ValueError, "desktop"):
+            builder.validate_manifests(self.manifest, self.overlay)
+
+    def test_mcp_app_or_hook_declarations_cannot_reenter_skill_only_release(self):
+        for key in ("mcpServers", "apps", "hooks"):
+            manifest = copy.deepcopy(self.manifest)
+            manifest["extensions"]["com.openai"][key] = "./unexpected.json"
+            with self.assertRaisesRegex(ValueError, "skills-only"):
+                builder.validate_manifests(manifest, self.overlay)
+
 
 if __name__ == "__main__":
     unittest.main()

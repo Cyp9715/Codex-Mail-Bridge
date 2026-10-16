@@ -1,4 +1,38 @@
-# Plugin contract review for 0.6.0
+# Plugin architecture review for 0.7.0
+
+The current plugin is a desktop skill plus a one-shot local CLI. It needs no MCP
+server or remote backend because its source is the already signed-in desktop mail
+client. GPT invokes the packaged CLI with JSON data arguments, reads compact
+metadata/text, and opens selected original files with authorized host tools.
+
+The 19 operation contracts retain explicit account scope, arbitrary date/time
+bounds, literal filters, status/result/candidate pagination, body budgets/revision
+checks and actionable errors. `--describe` loads one schema only when needed;
+results are returned once instead of mirrored structured/text MCP content.
+
+Attachment exports survive CLI exit, are bounded by size/count/lazy TTL, and are
+released by opaque ID after host access. Image viewing is a separate explicit host
+action; no base64, resource protocol, document parsing or execution remains.
+No global background process, listener, lifecycle hook or mail credentials are added.
+
+The manifests honestly mark local execution as required and contain no MCP/app
+configuration. This follows OpenAI's documented desktop skills-only path and
+removes the command-MCP component that caused the reported submission finding.
+Directory eligibility, scan results and review approval are external states and
+cannot be guaranteed by source changes. Public metadata describes the real data
+flow: local signed-in Thunderbird/classic Outlook mail becomes reference material
+for GPT, under the AI host's processing and permission controls.
+
+CLI/synthetic tests and separate host PDF/DOCX reads establish local code behavior.
+Live Outlook attachments, installed-host routing and another-PC compatibility
+remain unverified. Removing MCP sacrifices automatic dedicated mail-tool discovery;
+the installed skill instead uses the host's existing command/file tools.
+
+## Historical 0.6.0 contract review
+
+The following section describes the previous MCP implementation. Its transport
+and resource details are historical, not claims about the 0.7.0 runtime.
+
 
 ## Assessment
 

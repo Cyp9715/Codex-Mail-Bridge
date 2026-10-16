@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "mail-bridge": {
-      "command": "node",
-      "args": ["${PLUGIN_ROOT}/server/launch.cjs"],
-      "cwd": "${PLUGIN_ROOT}"
-    }
-  }
-}

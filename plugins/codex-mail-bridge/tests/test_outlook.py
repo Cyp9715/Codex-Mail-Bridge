@@ -30,7 +30,7 @@ class OutlookTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "different user 위치/settings/outlook.json"
-        self.env = patch.dict(os.environ, {"MAIL_BRIDGE_OUTLOOK_SETTINGS": str(self.path)})
+        self.env = patch.dict(os.environ, {"MAIL_BRIDGE_OUTLOOK_SETTINGS": str(self.path), "MAIL_BRIDGE_EXPORT_ROOT": str(Path(self.temp.name) / "exports")})
         self.env.start()
         self.calls = []
         self.mock = patch.object(outlook, "backend", side_effect=self.backend)

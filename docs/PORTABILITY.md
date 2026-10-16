@@ -23,8 +23,7 @@ No real accounts, addresses, folder paths, store/message IDs, or mail bodies are
 included in the distributable. Public screenshots/recordings must use isolated
 synthetic data. Report compatibility issues with redacted diagnostics only.
 
-Version 0.4.0 adds metadata-first original attachment handoff and temporary copies.
-Generated-file/stdio and synthetic COM tests cover the new tools; live Outlook
-provider and installed Codex attachment handoff need a dedicated synthetic review.
-Previous body/search evidence does not validate these additions. See
-[attachment support](ATTACHMENT_SUPPORT.md) for cache, size and host limits.
+Version 0.7.0 retains metadata-first original-file access through a skill and local
+CLI, with no MCP transport. Generated-file/CLI and synthetic COM tests cover the
+adapters; native Outlook attachment and installed-host flows remain unverified.
+See [attachment support](ATTACHMENT_SUPPORT.md) and [CLI contract](CLI.md).
