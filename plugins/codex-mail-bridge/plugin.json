@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-mail-bridge",
-  "version": "0.4.0",
-  "description": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex. Office 2019 supported.",
+  "version": "0.5.0",
+  "description": "Read selected Thunderbird and classic Outlook accounts in Codex, including Office 2019. Requires a signed-in desktop mail account.",
   "author": {
     "name": "Cyp Soft"
   },
@@ -23,7 +23,7 @@
       "interface": {
         "displayName": "Mail Bridge",
         "shortDescription": "Read Thunderbird & Outlook",
-        "longDescription": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex, including Office 2019 without Microsoft 365. Search mail, read bodies, follow conversations and draft reply text in chat. Find attachments by subject/date/sender/filename metadata first, list one message, then hand off only needed originals up to 10 MiB. Supported images return typed image content; other files use temporary local paths for Codex file tools. No document parsers, OCR, attachment execution, bulk transfer or cloud upload receipt. No send, draft-save, delete, move, read-state, forced-sync or policy changes. Thunderbird uses registered index/cache paths and bounded mbox/maildir lookup; unavailable/unsafe layouts fail closed. Outlook uses its running classic COM profile, rejects shared stores and protected/linked/OLE/embedded-message attachments. Search can be partial. Temporary exports expire on later requests and normal exit; crashes/locks can leave files. Node.js/Python required, plus Windows PowerShell 5.1 for Outlook. Body/search live evidence is limited to one Office 2019 setup; new attachment tools have synthetic tests and still need live provider/host validation. New Outlook and Mac/web Outlook unsupported. No Cyp Soft backend or tracking. Retrieved mail/files/images reach the AI host. Independent Cyp Soft project; no affiliation with Mozilla, Microsoft or OpenAI.",
+        "longDescription": "Requires an existing signed-in Thunderbird or classic Outlook account. Sign in and sync the needed mail in that client before use; keep classic Outlook running in that profile. Read explicitly selected accounts in Codex, including Office 2019 without Microsoft 365. Search by date or this/last week/month in the user's time zone. Search returns bounded metadata by default; request snippets when useful, page through body sections and control a conversation's total body budget. Broader reviews can continue Outlook candidate windows or partition by date/folder. Find attachments by subject/date/sender/filename, list one message, then hand off only needed originals up to 10 MiB. Originals use temporary local paths/resource links for host file tools; image pixels require include_image:true. No PDF/Office parsers, OCR, attachment execution, implicit bulk delivery or cloud upload receipt. No send, draft-save, delete, move, read-state, forced-sync or policy changes. Thunderbird uses registered index/cache paths and bounded mbox/maildir lookup; unavailable/unsafe layouts fail closed. Outlook uses its running classic COM profile, rejects shared stores and protected/linked/OLE/embedded-message attachments. Searches/caches can be partial. Temporary exports expire lazily or on normal exit; crashes/locks can leave files. Node.js/Python required, plus Windows PowerShell 5.1 for Outlook. IANA time zones need local timezone data; fixed offsets such as +09:00 work without extra packages. New capabilities have synthetic tests; live provider/installed-host attachment validation remains pending. New Outlook and Mac/web Outlook unsupported. No Cyp Soft backend or tracking. Retrieved mail/files/images reach the AI host. Independent Cyp Soft project; no affiliation with Mozilla, Microsoft or OpenAI.",
         "developerName": "Cyp Soft",
         "category": "Productivity",
         "capabilities": [
@@ -34,7 +34,6 @@
         "defaultPrompt": [
           "Help me choose one Thunderbird account and check its local mail index.",
           "Find recent emails about a project in my selected Thunderbird account.",
-          "Summarize a mail conversation and draft a reply in chat.",
           "Find a requested attachment by subject and date, then hand off only that original file."
         ],
         "websiteURL": "https://github.com/Cyp9715/Codex-Mail-Bridge",
@@ -117,7 +116,7 @@
               "description": "Use only a dedicated synthetic Outlook profile with generated image/PDF attachments. Actual provider and host verification remain pending; synthetic COM tests are not a live recording.",
               "prompt": "Find the Aurora image attachment in October 2026 and show only that image.",
               "tools_triggered": "outlook_search_attachments, outlook_list_attachments, outlook_get_attachment",
-              "expected_behavior": "Searches metadata only, lists one scoped message, requests the selected file ID, and returns exact original bytes/local path plus a typed image if its signature is supported. Explains provider/cache/host failures honestly; never fetches external images or changes unread state."
+              "expected_behavior": "Searches metadata only, lists one scoped message, requests the selected file ID with include_image true, and returns exact original bytes/local path plus a typed image if its signature is supported. Explains provider/cache/host failures honestly; never fetches external images or changes unread state."
             }
           ],
           "negative": [
@@ -137,12 +136,12 @@
         }
       },
       "publication": {
-        "release_notes": "Add metadata-first attachment searches, per-message listings, scoped original-file handoff and typed images for Thunderbird caches/classic Outlook. No document parsers; bounded temporary files, byte/hash checks, cache/scope/protection limits and synthetic transport tests.",
+        "release_notes": "Add timezone-aware calendar periods, metadata-first mail search, optional snippets, paged body reads, total conversation budgets and older Outlook candidate continuation. Keep original attachment handoff; make image pixels opt-in and document signed-in client prerequisites. Validate listing overlays and prompt limits.",
         "countries": [],
         "translations": {
           "ko-KR": {
             "subtitle": "Thunderbird·Outlook 메일 조회",
-            "description": "Codex에서 Thunderbird와 Windows 클래식 Outlook(Office 2019) 메일을 검색·조회합니다. 클라이언트별 선택 계정 하나에서 제목·기간·발신자·파일명으로 먼저 검색하고 필요한 첨부 원본만 전달합니다. 지원 이미지는 이미지 응답도 제공합니다. 파서·OCR·첨부 실행 없이 원본 파일을 임시 경로로 제공하며 문서 분석은 호스트 지원 범위에 따릅니다. 발송·초안 저장·삭제·이동·읽음 변경은 지원하지 않습니다. 경로를 고정하지 않으며 캐시·공급자·검색·크기 제한이 있습니다. 새 첨부 도구는 합성 테스트를 통과했으며 실제 공급자·호스트 검증이 남아 있습니다. 별도 서버·추적 없이 운영하는 Cyp Soft 독립 프로젝트입니다."
+            "description": "사용 전에 Thunderbird 또는 클래식 Outlook에 로그인하고 필요한 메일을 동기화해야 합니다. 클래식 Outlook은 로그인한 프로필로 실행해 두세요. Codex에서 선택한 계정의 메일을 조회하며 Office 2019를 지원합니다. 몇 월 이후·이번 주·지난주·이번 달·지난달을 사용자 시간대로 검색합니다. 기본 검색은 제한된 메타데이터를 반환하고 필요한 경우만 본문 미리보기·본문 구간·대화 출력 예산을 늘립니다. 넓은 검색은 후보 범위와 기간·폴더를 나눠 이어갈 수 있습니다. 제목·기간·발신자·파일명으로 먼저 찾고 필요한 첨부 원본만 임시 파일·리소스 링크로 전달합니다. 이미지 분석은 include_image:true로 요청합니다. 플러그인 내 파서·OCR·첨부 실행은 없으며 실제 문서 분석은 호스트 지원 범위에 따릅니다. 발송·초안 저장·삭제·이동·읽음 변경은 지원하지 않습니다. 캐시·공급자·검색·크기 제한이 있으며 새 기능은 합성 테스트로 검증했습니다. 실제 공급자·설치된 호스트의 첨부 전달 검증은 남아 있습니다. 별도 서버·추적 없이 운영하는 Cyp Soft 독립 프로젝트이며 조회한 메일·파일·이미지는 AI 호스트로 전달됩니다."
           }
         }
       }

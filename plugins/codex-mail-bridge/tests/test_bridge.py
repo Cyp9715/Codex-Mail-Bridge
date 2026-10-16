@@ -1,4 +1,6 @@
 import importlib.util
+from contextlib import closing, contextmanager
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -14,6 +16,7 @@ sys.path.insert(0, str(PLUGIN / "server"))
 sys.path.insert(0, str(PLUGIN / "tests"))
 import accounts
 import bridge as bridge
+import mail_dates
 from create_demo import create_demo
 
 
@@ -104,6 +107,74 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(bridge.search(query="회의 참석")["returned"], 1)
         self.assertEqual(bridge.search(query="' OR 1=1 --")["returned"], 0)
         self.assertEqual(bridge.search(query="agenda.pdf")["returned"], 1)
+
+    def test_metadata_defaults_do_not_read_body_for_subject_or_newest(self):
+        self.select()
+        with accounts.database() as (db, folders, profile, account):
+            def authorize(action, table, column, *_):
+                return sqlite3.SQLITE_DENY if action == sqlite3.SQLITE_READ and column == "c0body" else sqlite3.SQLITE_OK
+            db.set_authorizer(authorize)
+            @contextmanager
+            def active():
+                yield db, folders, profile, account
+            with patch.object(bridge, "database", active):
+                self.assertEqual(bridge.search()["returned"], 3)
+                value = bridge.search(query="Aurora", field="subject")
+        self.assertNotIn("snippet", value["messages"][0])
+        self.assertNotIn("body", value["messages"][0])
+        self.assertIn("October 20", bridge.search(query="October", include_snippet=True)["messages"][0]["snippet"])
+
+    def test_local_month_since_and_relative_week_filter_actual_index(self):
+        self.select()
+        now = datetime(2026, 10, 16, tzinfo=timezone.utc)
+        with patch.object(mail_dates, "current_time", return_value=now):
+            value = bridge.call_tool("thunderbird_search", {"period": "this_week", "time_zone": "+09:00"})
+        self.assertFalse(value["isError"])
+        self.assertEqual([m["id"] for m in json.loads(value["content"][0]["text"])["messages"]], [103])
+        with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
+            for mid, date in ((101, "2026-09-30T15:00:00+00:00"), (102, "2026-09-30T14:59:59+00:00")):
+                db.execute("UPDATE messages SET date=? WHERE id=?", (int(datetime.fromisoformat(date).timestamp() * 1_000_000), mid))
+            db.commit()
+        value = bridge.search(after="2026-10-01", time_zone="+09:00")
+        self.assertEqual([m["id"] for m in value["messages"]], [103, 101])
+        self.assertEqual([m["id"] for m in bridge.search(before="2026-10-01", time_zone="+09:00")["messages"]], [102])
+        self.assertEqual(bridge.search_attachments(after="2026-10-01", time_zone="+09:00")["returned"], 1)
+
+    def test_long_body_can_be_read_completely_in_small_sections(self):
+        self.select()
+        body = "A" * 61000 + " Later section: 회의 " + "B" * 2000
+        with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
+            db.execute("UPDATE messagesText_content SET c0body=? WHERE docid=101", (body,))
+            db.commit()
+        pieces, offset = [], 0
+        while True:
+            value = bridge.call_tool("thunderbird_read", {"message_id": 101, "body_offset": offset, "max_characters": 5000})
+            self.assertFalse(value["isError"])
+            item = json.loads(value["content"][0]["text"])["message"]
+            self.assertLessEqual(len(item["body"]), 5000)
+            pieces.append(item["body"])
+            if not item["has_more_body"]:
+                break
+            self.assertGreater(item["next_body_offset"], offset)
+            offset = item["next_body_offset"]
+        self.assertEqual("".join(pieces), body)
+
+    def test_thread_total_budget_preserves_all_ids_and_read_continuation(self):
+        self.select()
+        with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
+            db.execute("UPDATE messagesText_content SET c0body=? WHERE docid IN (101,102)", ("x" * 10000,))
+            db.commit()
+        value = bridge.thread(10, max_total_characters=7000)
+        self.assertEqual([m["id"] for m in value["messages"]], [101, 102])
+        self.assertEqual(sum(len(m["body"]) for m in value["messages"]), 7000)
+        self.assertTrue(value["body_budget_exhausted"])
+        item = value["messages"][1]
+        self.assertEqual(item["next_body_offset"], 1000)
+        self.assertEqual(len(bridge.read(item["id"], body_offset=item["next_body_offset"])["message"]["body"]), 9000)
+        omitted = bridge.thread(10, max_total_characters=100)["messages"][1]
+        self.assertEqual(omitted["body"], "")
+        self.assertTrue(omitted["body_omitted_by_budget"])
+        self.assertEqual(omitted["next_body_offset"], 0)
 
     def test_port_and_username_boundaries(self):
         account = accounts.account_by_id(self.profile, "account1")
@@ -221,7 +292,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         replies = [json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual([r["id"] for r in replies], [1, 2, 3])
-        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.4.0"})
+        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.5.0"})
         self.assertEqual(len(replies[1]["result"]["tools"]), 19)
         hits = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(hits["messages"][0]["id"], 101)

@@ -87,6 +87,9 @@ class ThunderbirdAttachmentTests(unittest.TestCase):
     def test_only_requested_image_is_typed(self):
         entry = self.listing()[1]
         value = tb.get_attachment(101, entry['id'])
+        self.assertFalse(any(c['type'] == 'image' for c in value.content))
+        self.assertEqual(Path(value.metadata['local_path']).read_bytes(), self.originals[1])
+        value = tb.get_attachment(101, entry['id'], include_image=True)
         pixels = next(c for c in value.content if c['type'] == 'image')
         self.assertEqual(base64.b64decode(pixels['data']), self.originals[1])
         value = tb.get_attachment(101, entry['id'], include_image=False)

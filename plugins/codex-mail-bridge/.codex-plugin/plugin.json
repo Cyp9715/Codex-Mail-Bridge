@@ -1,7 +1,7 @@
 {
   "name": "codex-mail-bridge",
-  "version": "0.4.0",
-  "description": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex. Office 2019 supported.",
+  "version": "0.5.0",
+  "description": "Read selected Thunderbird and classic Outlook accounts in Codex, including Office 2019. Requires a signed-in desktop mail account.",
   "author": {
     "name": "Cyp Soft"
   },
@@ -12,7 +12,7 @@
   "interface": {
     "displayName": "Mail Bridge",
     "shortDescription": "Read Thunderbird & Outlook",
-    "longDescription": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex, including Office 2019 without Microsoft 365. Search mail, read bodies, follow conversations and draft reply text in chat. Find attachments by subject/date/sender/filename metadata first, list one message, then hand off only needed originals up to 10 MiB. Supported images return typed image content; other files use temporary local paths for Codex file tools. No document parsers, OCR, attachment execution, bulk transfer or cloud upload receipt. No send, draft-save, delete, move, read-state, forced-sync or policy changes. Thunderbird uses registered index/cache paths and bounded mbox/maildir lookup; unavailable/unsafe layouts fail closed. Outlook uses its running classic COM profile, rejects shared stores and protected/linked/OLE/embedded-message attachments. Search can be partial. Temporary exports expire on later requests and normal exit; crashes/locks can leave files. Node.js/Python required, plus Windows PowerShell 5.1 for Outlook. Body/search live evidence is limited to one Office 2019 setup; new attachment tools have synthetic tests and still need live provider/host validation. New Outlook and Mac/web Outlook unsupported. No Cyp Soft backend or tracking. Retrieved mail/files/images reach the AI host. Independent Cyp Soft project; no affiliation with Mozilla, Microsoft or OpenAI.",
+    "longDescription": "Requires an existing signed-in Thunderbird or classic Outlook account. Sign in and sync the needed mail in that client before use; keep classic Outlook running in that profile. Read explicitly selected accounts in Codex, including Office 2019 without Microsoft 365. Search by date or this/last week/month in the user's time zone. Search returns bounded metadata by default; request snippets when useful, page through body sections and control a conversation's total body budget. Broader reviews can continue Outlook candidate windows or partition by date/folder. Find attachments by subject/date/sender/filename, list one message, then hand off only needed originals up to 10 MiB. Originals use temporary local paths/resource links for host file tools; image pixels require include_image:true. No PDF/Office parsers, OCR, attachment execution, implicit bulk delivery or cloud upload receipt. No send, draft-save, delete, move, read-state, forced-sync or policy changes. Thunderbird uses registered index/cache paths and bounded mbox/maildir lookup; unavailable/unsafe layouts fail closed. Outlook uses its running classic COM profile, rejects shared stores and protected/linked/OLE/embedded-message attachments. Searches/caches can be partial. Temporary exports expire lazily or on normal exit; crashes/locks can leave files. Node.js/Python required, plus Windows PowerShell 5.1 for Outlook. IANA time zones need local timezone data; fixed offsets such as +09:00 work without extra packages. New capabilities have synthetic tests; live provider/installed-host attachment validation remains pending. New Outlook and Mac/web Outlook unsupported. No Cyp Soft backend or tracking. Retrieved mail/files/images reach the AI host. Independent Cyp Soft project; no affiliation with Mozilla, Microsoft or OpenAI.",
     "developerName": "Cyp Soft",
     "category": "Productivity",
     "capabilities": [
@@ -23,7 +23,6 @@
     "defaultPrompt": [
       "Help me choose one Thunderbird account and check its local mail index.",
       "Find recent emails about a project in my selected Thunderbird account.",
-      "Summarize a mail conversation and draft a reply in chat.",
       "Find a requested attachment by subject and date, then hand off only that original file."
     ],
     "websiteURL": "https://github.com/Cyp9715/Codex-Mail-Bridge",

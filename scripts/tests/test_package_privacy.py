@@ -1,5 +1,7 @@
 """Release archives must contain exactly the bytes checked before writing."""
 from pathlib import Path
+import copy
+import json
 import subprocess
 import sys
 import tempfile
@@ -53,6 +55,27 @@ class PackagePrivacyTests(unittest.TestCase):
         with zipfile.ZipFile(output) as archive:
             self.assertEqual(archive.read(".githooks/pre-commit"), b"Synthetic safe source")
             self.assertEqual(archive.getinfo(".githooks/pre-commit").external_attr >> 16, 0o100755)
+
+
+class ManifestTests(unittest.TestCase):
+    def setUp(self):
+        self.manifest = json.loads((builder.PLUGIN / "plugin.json").read_text(encoding="utf-8"))
+        self.overlay = json.loads((builder.PLUGIN / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+
+    def test_release_listings_are_synchronized(self):
+        self.assertEqual(builder.validate_manifests(self.manifest, self.overlay), self.manifest["version"])
+
+    def test_excess_default_prompts_cannot_be_packaged(self):
+        interface = self.manifest["extensions"]["com.openai"]["interface"]
+        interface["defaultPrompt"] = ["Example prompt"] * 4
+        self.overlay["interface"] = copy.deepcopy(interface)
+        with self.assertRaisesRegex(ValueError, "three"):
+            builder.validate_manifests(self.manifest, self.overlay)
+
+    def test_stale_compatibility_listing_cannot_be_packaged(self):
+        self.overlay["interface"]["longDescription"] = "Stale example description"
+        with self.assertRaisesRegex(ValueError, "mismatch"):
+            builder.validate_manifests(self.manifest, self.overlay)
 
 
 if __name__ == "__main__":

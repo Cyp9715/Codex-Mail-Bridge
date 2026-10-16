@@ -71,7 +71,7 @@ def cleanup():
 atexit.register(cleanup)
 
 
-def transfer(data, metadata, resolver, include_image=True):
+def transfer(data, metadata, resolver, include_image=False):
     if not isinstance(data, bytes) or len(data) > MAX_BYTES:
         raise BridgeError("Attachment exceeds the 10 MiB transfer limit or is unavailable.")
     name = str(metadata.get("name") or "attachment")[:512].replace("\x00", "")

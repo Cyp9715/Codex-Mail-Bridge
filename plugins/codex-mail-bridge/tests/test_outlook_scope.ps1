@@ -66,4 +66,28 @@ Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' $listing.attac
 # Restrict the requested date range before applying the newest-candidate limit.
 $filter = New-CandidateFilter '2026-10-01T00:00:00+00:00' '2026-11-01T00:00:00+00:00'
 if ($filter -notmatch '0x0E060040.*>=' -or $filter -notmatch '0x0E060040.*<') { throw 'Missing UTC table date bounds' }
+
+# Body paging reaches later text and never breaks a Unicode surrogate pair.
+$body = ('A' * 100) + [char]::ConvertFromUtf32(0x1F680) + ('B' * 100)
+$offset = 0; $reconstructed = ''
+do {
+    $page = Get-BodySection $body 101 $offset
+    $reconstructed += $page.body
+    $offset = $page.next_body_offset
+} while ($page.has_more_body)
+if ($reconstructed -cne $body) { throw 'Body pagination lost or duplicated text' }
+$later = Get-BodySection $body 100 102
+if ($later.body -cne ('B' * 100) -or $later.has_more_body) { throw 'Later body section unavailable' }
+if ((Get-BodySection $body 100 10000).body -ne '') { throw 'Offset beyond body must be empty' }
+
+# Candidate continuation advances even when a window has no matching results.
+$candidates = @('newest', 'middle', 'oldest')
+$first = @(Get-ScanWindow $candidates 0 1)
+$progress = Get-ScanProgress $candidates.Count 0 $first.Count
+if ($first[0] -ne 'newest' -or $progress.next_scan_offset -ne 1 -or -not $progress.scan_incomplete) { throw 'First candidate window continuation missing' }
+$last = @(Get-ScanWindow $candidates $progress.next_scan_offset 2)
+$finished = Get-ScanProgress $candidates.Count 1 $last.Count
+if (($last -join ',') -ne 'middle,oldest' -or $finished.scan_incomplete -or $null -ne $finished.next_scan_offset) { throw 'Older candidate window did not complete' }
+$partial = Get-ScanProgress 10 2 3
+if ($partial.next_scan_offset -ne 5) { throw 'Timed scan continuation skipped unexamined candidates' }
 Write-Output 'Outlook scope tests passed'

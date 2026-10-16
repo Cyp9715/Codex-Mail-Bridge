@@ -61,13 +61,7 @@ def package(destination, files):
             "sha256": hashlib.sha256(destination.read_bytes()).hexdigest()}
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=ROOT / "outputs")
-    args = parser.parse_args()
-    args.output.mkdir(parents=True, exist_ok=True)
-    manifest = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))
-    overlay = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+def validate_manifests(manifest, overlay):
     version = manifest["version"]
     if version != overlay["version"] or manifest["name"] != overlay["name"]:
         raise ValueError("Manifest identity/version mismatch")
@@ -76,8 +70,26 @@ def main():
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("Expected semantic version")
     interface = manifest["extensions"]["com.openai"]["interface"]
+    if interface != overlay.get("interface") or manifest.get("description") != overlay.get("description"):
+        raise ValueError("Portable/compatibility listing mismatch")
     if len(interface["displayName"]) > 30 or len(interface["shortDescription"]) > 30:
         raise ValueError("Listing name/subtitle is too long")
+    prompts = interface.get("defaultPrompt")
+    if prompts is not None:
+        values = [prompts] if isinstance(prompts, str) else prompts
+        if not isinstance(values, list) or not 1 <= len(values) <= 3 or not all(isinstance(p, str) and p.strip() for p in values):
+            raise ValueError("Expected one default prompt or up to three nonblank prompt strings")
+    return version
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=ROOT / "outputs")
+    args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    manifest = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))
+    overlay = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+    version = validate_manifests(manifest, overlay)
     # Include only known component directories and explicit top-level files.
     plugin_files = [PLUGIN / name for name in (
         "plugin.json", "mcp.json", ".mcp.json", ".codex-plugin/plugin.json",

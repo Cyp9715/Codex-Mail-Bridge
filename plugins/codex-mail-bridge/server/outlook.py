@@ -1,5 +1,4 @@
 """Classic Outlook through Windows PowerShell and the documented COM API."""
-from datetime import datetime, timezone
 import base64
 import json
 import os
@@ -10,8 +9,10 @@ import sys
 
 from accounts import BridgeError
 import attachments
+from mail_dates import resolve_range
+from mail_output import bounded_metadata, budget_bodies
 
-NOTICE = ("Classic Outlook desktop store only; Microsoft 365 subscription is not required. "
+NOTICE = ("Sign in and sync in classic Outlook first, then keep it running. Microsoft 365 subscription is not required. "
           "Searches are bounded and report scan_incomplete when partial. Outlook may fetch data "
           "through its configured provider; offline operation or complete sync is not guaranteed. "
           "No send, delete, move, mark-read, or draft-save operations. Attachments are transferred as original files, never parsed or executed.")
@@ -21,6 +22,12 @@ def settings_path():
     override = os.environ.get("MAIL_BRIDGE_OUTLOOK_SETTINGS")
     root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
     return Path(override).expanduser() if override else root / "CypSoft/MailBridge/outlook.json"
+
+
+def powershell_environment():
+    # A Python child of PowerShell 7 can inherit incompatible module paths.
+    # Let Windows PowerShell discover its own defaults; preserve policy variables.
+    return {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
 
 
 def backend(operation, **arguments):
@@ -33,7 +40,8 @@ def backend(operation, **arguments):
         result = subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-STA", "-File", str(script)],
             input=json.dumps({"operation": operation, **arguments}, ensure_ascii=False),
             capture_output=True, text=True, encoding="utf-8", timeout=45,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), shell=False)
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), shell=False,
+            env=powershell_environment())
         data = json.loads(result.stdout.lstrip("\ufeff"))
     except subprocess.TimeoutExpired:
         raise BridgeError("Outlook did not respond. Check its security/access prompt or profile, then retry. Security settings are never changed.") from None
@@ -113,27 +121,14 @@ def status():
     return response(backend("status", **selection()))
 
 
-def boundary(value):
-    if not value:
-        return ""
-    try:
-        parsed = datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        if parsed.strftime("%Y-%m-%d") != value:
-            raise ValueError()
-        return parsed.isoformat()
-    except ValueError:
-        raise BridgeError("Dates must be valid YYYY-MM-DD dates in UTC.") from None
-
-
 def scan(*, query="", sender="", recipient="", folder_id="", after="", before="", field="any",
-         limit=10, offset=0, scan_limit=1000, conversation_id="", body_limit=6000, attachment_query=None):
-    start, end = boundary(after), boundary(before)
-    if start and end and end <= start:
-        raise BridgeError("before must be later than after.")
-    include_body = bool(conversation_id or query and field != "subject")
-    value = backend("scan", **selection(), folder_id=folder_id, after=start, before=end,
+         limit=10, offset=0, scan_limit=1000, conversation_id="", body_limit=6000, attachment_query=None,
+         include_snippet=False, scan_offset=0, max_total_characters=24000, period="", time_zone="UTC"):
+    dates = resolve_range(after, before, period, time_zone)
+    include_body = bool(conversation_id or include_snippet or query and field != "subject")
+    value = backend("scan", **selection(), folder_id=folder_id, after=dates["after"] or "", before=dates["before"] or "",
                     include_body=include_body, max_characters=body_limit, scan_limit=scan_limit,
-                    conversation_id=conversation_id)
+                    conversation_id=conversation_id, scan_offset=scan_offset)
     matches = []
     words = query.casefold().split()
     for message in value["messages"]:
@@ -153,47 +148,54 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
     matches.sort(key=lambda m: (m["date"], m["id"]), reverse=not bool(conversation_id))
     shown = matches[offset:offset + limit]
     for message in shown:
-        if attachment_query is not None:
-            message.pop("body", None)
-            names = message["attachment_names"]
-            message["attachment_names"] = [name[:200] for name in names[:5]]
-            message["attachment_names_truncated"] = len(names) > 5 or any(len(n) > 200 for n in names)
-            for key in ("subject", "sender", "recipients", "folder_name"):
-                if key in message:
-                    message[key] = message[key][:400]
-        elif not conversation_id:
+        if not conversation_id:
             body = message.pop("body", "")
-            message["snippet"] = " ".join(body.split())[:280]
+            if include_snippet and attachment_query is None:
+                message["snippet"] = " ".join(body.split())[:280]
+            for key in ("body_characters", "body_offset", "body_offset_unit", "has_more_body", "next_body_offset"):
+                message.pop(key, None)
+        bounded_metadata(message)
     more = len(matches) > offset + limit
+    budget = budget_bodies(shown, max_total_characters) if conversation_id else {}
     return response({"account": value["account"], "messages": shown, "returned": len(shown),
                      "has_more": more, "next_offset": offset + limit if more else None,
                      "scan_incomplete": value["scan_incomplete"], "scanned_messages": value["scanned_messages"],
+                     "scan_offset": scan_offset, "next_scan_offset": value.get("next_scan_offset"),
+                     "scan_continuation_note": "Paginate matching results in this window first; then use next_scan_offset with offset 0 and identical filters. Mail changes can shift windows. Narrow dates/folders if time or offset limits are reached.",
+                     "date_range": dates, **budget,
                      "search_body_character_limit": body_limit if include_body else 0})
 
 
-def search(query="", sender="", recipient="", folder_id="", after="", before="", field="any", limit=10, offset=0, scan_limit=1000):
+def search(query="", sender="", recipient="", folder_id="", after="", before="", field="any", limit=10, offset=0, scan_limit=1000,
+           include_snippet=False, scan_offset=0, period="", time_zone="UTC"):
     return scan(query=query, sender=sender, recipient=recipient, folder_id=folder_id, after=after,
-                before=before, field=field, limit=limit, offset=offset, scan_limit=scan_limit)
+                before=before, field=field, limit=limit, offset=offset, scan_limit=scan_limit,
+                include_snippet=include_snippet, scan_offset=scan_offset, period=period, time_zone=time_zone)
 
 
-def search_attachments(query="", filename="", sender="", recipient="", folder_id="", after="", before="", limit=10, offset=0, scan_limit=1000):
+def search_attachments(query="", filename="", sender="", recipient="", folder_id="", after="", before="", limit=10, offset=0, scan_limit=1000,
+                       scan_offset=0, period="", time_zone="UTC"):
     value = scan(query=query, sender=sender, recipient=recipient, folder_id=folder_id, after=after,
                  before=before, field="subject", limit=limit, offset=offset, scan_limit=scan_limit,
-                 attachment_query=filename)
+                 attachment_query=filename, scan_offset=scan_offset, period=period, time_zone=time_zone)
     value["search_mode"] = "subject_and_attachment_metadata_only"
     value["attachment_search_note"] = "Bounded metadata scan only; refine subject/date/sender/filename filters. No body or file contents are read by this search."
     return value
 
 
-def read(message_id, max_characters=16000):
+def read(message_id, max_characters=16000, body_offset=0):
     if not re.fullmatch(r"[0-9A-Fa-f]{16,4096}", message_id):
         raise BridgeError("Use an Outlook message ID from search.")
-    return response(backend("read", **selection(), message_id=message_id, max_characters=max_characters))
+    value = backend("read", **selection(), message_id=message_id, max_characters=max_characters, body_offset=body_offset)
+    bounded_metadata(value["message"])
+    return response(value)
 
 
-def thread(thread_id, limit=20, offset=0, max_characters_per_message=6000, scan_limit=1000):
+def thread(thread_id, limit=20, offset=0, max_characters_per_message=6000, scan_limit=1000,
+           max_total_characters=24000, scan_offset=0):
     return scan(conversation_id=thread_id, limit=limit, offset=offset,
-                body_limit=max_characters_per_message, scan_limit=scan_limit)
+                body_limit=max_characters_per_message, scan_limit=scan_limit,
+                max_total_characters=max_total_characters, scan_offset=scan_offset)
 
 
 def attachment_request(operation, message_id, **arguments):
@@ -229,6 +231,6 @@ def source_attachment(message_id, attachment_id):
     return data, {**value["attachment"], "account": value["account"], "source": "classic_outlook_object_model"}
 
 
-def get_attachment(message_id, attachment_id, include_image=True):
+def get_attachment(message_id, attachment_id, include_image=False):
     data, meta = source_attachment(message_id, attachment_id)
     return attachments.transfer(data, meta, lambda: source_attachment(message_id, attachment_id), include_image)

@@ -7,6 +7,11 @@
 **A Cyp Soft desktop plugin for reading Thunderbird and classic Microsoft Outlook
 mail in Codex. Office 2019 is supported; a Microsoft 365 subscription is not required.**
 
+**Before use, sign in to Thunderbird or classic Outlook and sync the mail you need.
+Keep classic Outlook running in that signed-in profile.** The bridge uses that
+existing account/cache; it does not log in. Thunderbird can read already cached
+mail while its window is closed.
+
 Mail Bridge provides read-only mailbox access: search, read, and summarize mail,
 follow conversations, and compose reply text in chat. It cannot create, send,
 save, delete, move, or mark mail as read. Reply text stays in chat until you use
@@ -74,8 +79,21 @@ The older 0.1.x installation identifier was `thunderbird-mail-bridge`.
 
 Each client has one explicitly selected account. Selecting Outlook does not
 switch the Thunderbird choice, and a combined search is never implicit.
-Search supports literal keywords, sender, recipient, folder, and UTC date range.
-`after` includes its UTC date; `before` excludes its UTC date.
+Search supports literal keywords, sender, recipient, folder, and calendar dates.
+`after` includes its date; `before` excludes its date at midnight in `time_zone`
+(default UTC). Use `time_zone:"+09:00"` for Korean dates without extra dependencies.
+IANA zones are supported when local timezone data is available; Windows may need
+optional `tzdata`. The launcher never downloads it. Responses disclose normalized
+UTC `date_range`. See the calendar examples below.
+
+Version 0.5.0 returns bounded search metadata by default. Request `include_snippet:true`
+only when a 280-character body preview is useful. Subject/empty metadata searches
+read no body; body/any queries can still search text locally. Long metadata fields
+and filename summaries have explicit truncation flags. Read bodies in sections using
+`body_offset` / `next_body_offset`; later text is reachable without repeating the
+prefix. Conversations have a total body budget of 24,000 characters per page by
+default, configurable with `max_total_characters` up to 120,000. Use read for omitted
+sections. These are character budgets, not exact model-token counts.
 
 Thunderbird results are local indexed text and may omit unsynced or unindexed mail.
 Outlook results come from the selected account's unique delivery store. Additional
@@ -90,14 +108,20 @@ within that scan window. Keyword body search examines at most 6,000 characters
 per message. Body/recipient/attachment-name truncation is disclosed. Empty search
 results never prove absence from the full mailbox. Conversations may be partial
 outside the scan window. Outlook addresses may be legacy Exchange addresses.
+For broader coverage, paginate matching results with `offset`, then follow
+`next_scan_offset` with `offset:0` and identical filters to inspect older candidates.
+`scan_offset` is bounded to 100,000; date/folder partitions provide additional
+coverage and reduce repeated local scan work. Mail changes can shift windows;
+deduplicate by ID. Timeouts or partial scans must not be described as complete.
 
 Version 0.4.0 adds metadata-first original attachment handoff. Search subjects, dates,
 senders and filenames without bodies or file contents; list one candidate message,
 then get only the needed file. Search returns 10 metadata results by default, maximum
 20. Get returns an original private temporary file (up to 10 MiB), its hash and a
-resource link. PNG/JPEG/GIF/WebP also return typed images; `include_image:false` saves
-image tokens. PDF/Office/other documents stay as original files for Codex file tools.
-No document parsers, OCR, execution, bulk transfer or base64 text dumping are added.
+resource link. In 0.5.0, PNG/JPEG/GIF/WebP return typed images only with
+`include_image:true` for visual analysis; the default false still delivers the original.
+PDF/Office/other documents stay as original files for Codex file tools.
+No document parsers, OCR, execution, implicit bulk transfer or base64 text dumping are added.
 Host file analysis is separate from delivery and is not a cloud upload receipt.
 
 Thunderbird needs a safely mapped local cache; hashed/special layouts and messages
@@ -106,6 +130,27 @@ attachments; protected, linked, OLE and embedded-message items are unsupported.
 Exports expire after 10 minutes on later transfer/resource requests (maximum 16);
 normal exit attempts cleanup. Crashes or locked files can leave temporary copies.
 See [attachment handoff and verification limits](docs/ATTACHMENT_SUPPORT.md).
+User-requested broad analysis can search many pages/date ranges and read many
+relevant files in manageable batches; the small defaults do not cap an entire task.
+
+## Calendar date examples
+
+These options apply to both clients' mail and attachment searches. Weeks start
+Monday in the requested time zone. Relative periods use the bridge's current
+clock. Do not combine `period` with explicit `after` / `before`.
+
+| User request | Search arguments |
+| --- | --- |
+| Since October 2026, Korean time | `after:"2026-10-01", time_zone:"+09:00"` |
+| This week | `period:"this_week", time_zone:"+09:00"` |
+| Last week | `period:"last_week", time_zone:"+09:00"` |
+| This month / last month | `period:"this_month"` / `period:"last_month"`, with the user's `time_zone` |
+| October only | `after:"2026-10-01", before:"2026-11-01", time_zone:"+09:00"` |
+
+The agent resolves a missing year from the conversation or clarifies ambiguity.
+For example, October 1 at Korean midnight is September 30 at 15:00 UTC; filtering
+from October 1 UTC would incorrectly omit nine hours of mail.
+See [design review and follow-up recommendations](docs/DESIGN_REVIEW.md).
 
 There are no
 send, compose-window, draft-save, delete, move, read-state change, forced-sync,

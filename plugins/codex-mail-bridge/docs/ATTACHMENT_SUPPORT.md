@@ -1,7 +1,8 @@
 # Original attachment handoff
 
-Version 0.4.0 implements original-file handoff for Thunderbird local MIME caches
-and classic Outlook by-value attachments. It adds six tools, for 19 in total.
+Version 0.5.0 retains the original-file handoff introduced in 0.4.0. It supports
+Thunderbird local MIME caches and classic Outlook by-value attachments. There are
+six attachment tools, for 19 tools in total.
 The bridge does not parse PDF, Word, Excel, archives or other document contents,
 perform OCR, execute files, or upload files to an OpenAI Files API.
 
@@ -11,7 +12,7 @@ For either client use the following sequence, restricted to its explicitly
 selected account:
 
 1. `thunderbird_search_attachments` or `outlook_search_attachments` narrows mail
-   by **subject**, sender, recipient, folder, UTC dates and/or filename. Subject
+   by **subject**, sender, recipient, folder, calendar dates/periods and/or filename. Subject
    query words and filename words are literal substring matches, not file-content
    searches. Default 10 results, maximum 20, with bounded filename summaries.
    Neither search reads message bodies, MIME caches or attachment payloads.
@@ -20,11 +21,16 @@ selected account:
    Duplicate filenames get distinct opaque IDs; inline images include content IDs.
 3. `*_get_attachment(message_id, attachment_id)` transfers **one** needed original,
    at most 10 MiB. Never enumerate and transfer all mailbox attachments implicitly.
+   User-requested broad review may search many pages and transfer relevant originals
+   in manageable batches.
 
 Refine dates/subject/sender before widening a large search. Outlook applies date
 filters to its metadata table before choosing its newest candidate window, then
 scans at most 1,000 candidates by default, maximum 5,000. Inspect `scan_incomplete`;
-paginate within that window or narrow date/folder filters. Thunderbird searches
+paginate matches within that window, then follow next_scan_offset with offset 0
+and unchanged filters, or partition by date/folder. Weeks start Monday in the
+user's time_zone; period:this_week and explicit after/before are mutually exclusive.
+Thunderbird searches
 indexed filenames, which can omit inline images, stale entries or unindexed mail.
 An empty result does not establish absence from the complete mailbox.
 
@@ -37,8 +43,9 @@ count, SHA-256 and an opaque MCP resource link. Codex can use its existing local
 file tools on this path; native document handling depends on the host. A resource
 link alone is not a cloud upload receipt or proof that GPT analyzed a document.
 
-PNG, JPEG, GIF and WebP signatures additionally produce typed MCP image content.
-Set `include_image:false` if only the file is needed; this avoids image-token use.
+PNG, JPEG, GIF and WebP signatures produce typed MCP image content only when
+`include_image:true` is requested for visual analysis. The default false delivers
+the exact original file without image-token use.
 Raw file bytes are **not** dumped into ordinary JSON/base64 text or embedded blob
 content in the get response. A host that supports binary MCP resources can explicitly
 call `resources/read`; that returns the original blob and rechecks scope/identity.

@@ -1,6 +1,6 @@
 # Mail Bridge review walkthrough and evidence
 
-Version 0.4.0 · Cyp Soft · synthetic public demonstrations only
+Version 0.5.0 · Cyp Soft · synthetic public demonstrations only
 
 One stdio MCP server exposes 19 tools. The manifest contains twelve positive cases
 (six Thunderbird, six classic Outlook) and three negative cases. Natural-language
@@ -21,11 +21,17 @@ do not mark those review cases passed.
   A separate read test preserved the sampled message's unread state.
 - Attachment evidence: generated PDF/PNG/duplicate-name MIME, metadata-only
   search, no body-column reads, listing without payload decoding, byte/hash equality,
-  typed image opt-out, mbox/maildir/custom paths, scope/change/protection limits,
+  typed image opt-in, mbox/maildir/custom paths, scope/change/protection limits,
   temporary-copy cleanup and stdio handoff pass automated tests. Outlook attachment
   access uses synthetic COM properties; live provider/installed-host attachment
   workflows and file analysis remain unverified.
+- Added synthetic coverage: local calendar boundaries and relative weeks/months,
+  body section reconstruction, metadata-only defaults, total body budgets and
+  older Outlook candidate-window continuation.
 - Other PCs/Office editions: not run. macOS/Linux live Thunderbird: not run.
+- Current 0.5.0 validation: the unsigned PowerShell runtime test is skipped under
+  this machine's Restricted execution policy. Both PowerShell sources receive
+  syntax checks. No script policy is changed or bypassed.
 - Public host review prompts, negative routing, recording and playback: not run.
 
 The live test used authorized local data, which is absent from this package,
@@ -42,7 +48,7 @@ as a real Outlook profile, Office-wide certification, or a recorded demo.
 5. Find Project Aurora from Alex, read the meeting deadline, and show its thread.
 6. Search attachment metadata for subject Aurora and filename agenda, list message
    101, then get one agenda.pdf by its opaque ID. Compare original bytes/hash;
-   list/get diagram.png to verify typed image display. No document parser is used.
+   list/get diagram.png with include_image:true to verify typed image display. No document parser is used.
    The two agenda.pdf parts have distinct IDs. Do not transfer both implicitly.
 
 ## Isolated Outlook demo

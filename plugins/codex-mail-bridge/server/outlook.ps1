@@ -111,7 +111,29 @@ function Get-ScopedItem($Session, $Store, $FolderIds, [string]$MessageId) {
     return $item
 }
 
-function Get-Message($Item, [bool]$IncludeBody, [int]$BodyLimit) {
+function Get-BodySection([string]$Body, [int]$Limit, [int]$Offset = 0) {
+    $start = $Offset
+    if ($start -gt 0 -and $start -lt $Body.Length -and [char]::IsLowSurrogate($Body[$start]) -and [char]::IsHighSurrogate($Body[$start - 1])) { $start-- }
+    $end = [Math]::Min($Body.Length, [long]$start + $Limit)
+    if ($end -gt $start -and $end -lt $Body.Length -and [char]::IsHighSurrogate($Body[$end - 1]) -and [char]::IsLowSurrogate($Body[$end])) { $end-- }
+    $text = if ($start -lt $Body.Length) { $Body.Substring($start, $end - $start) } else { '' }
+    $more = $end -lt $Body.Length
+    return @{ body = $text; body_characters = $Body.Length; body_offset = $start
+        body_offset_unit = 'utf16_code_units'; body_truncated = ($start -gt 0 -or $more)
+        has_more_body = $more; next_body_offset = $(if ($more) { $end } else { $null }) }
+}
+
+function Get-ScanProgress([int]$Count, [int]$Offset, [int]$Examined) {
+    $more = $Count -gt ([long]$Offset + $Examined)
+    $next = if ($more -and $Examined -gt 0 -and ([long]$Offset + $Examined) -le 100000) { $Offset + $Examined } else { $null }
+    return @{ scan_incomplete = $more; next_scan_offset = $next }
+}
+
+function Get-ScanWindow($Candidates, [int]$Offset, [int]$Limit) {
+    return @($Candidates | Select-Object -Skip $Offset -First $Limit)
+}
+
+function Get-Message($Item, [bool]$IncludeBody, [int]$BodyLimit, [int]$BodyOffset = 0) {
     $recipients = @()
     for ($n = 1; $n -le [Math]::Min(200, $Item.Recipients.Count); $n++) {
         $recipient = $Item.Recipients.Item($n)
@@ -126,9 +148,8 @@ function Get-Message($Item, [bool]$IncludeBody, [int]$BodyLimit) {
         folder_name = [string]$Item.Parent.Name; attachment_names = $attachments
         recipients_truncated = ($Item.Recipients.Count -gt 200); attachments_truncated = ($Item.Attachments.Count -gt 200) }
     if ($IncludeBody) {
-        $body = [string]$Item.Body
-        $message.body = $body.Substring(0, [Math]::Min($BodyLimit, $body.Length))
-        $message.body_truncated = $body.Length -gt $BodyLimit
+        $section = Get-BodySection ([string]$Item.Body) $BodyLimit $BodyOffset
+        foreach ($key in $section.Keys) { $message[$key] = $section[$key] }
     }
     return [pscustomobject]$message
 }
@@ -205,7 +226,7 @@ function Invoke-OutlookRequest($Request) {
     }
     if ($Request.operation -eq 'read') {
         $item = Get-ScopedItem $session $chosen.store $folderIds $Request.message_id
-        return @{ account = $chosen.address; message = Get-Message $item $true ([int]$Request.max_characters) }
+        return @{ account = $chosen.address; message = Get-Message $item $true ([int]$Request.max_characters) ([int]$Request.body_offset) }
     }
     if ($Request.operation -in @('attachments', 'attachment')) {
         $item = Get-ScopedItem $session $chosen.store $folderIds $Request.message_id
@@ -217,11 +238,13 @@ function Invoke-OutlookRequest($Request) {
     }
     $limit = [int]$Request.scan_limit
     if ($limit -lt 1 -or $limit -gt 5000) { throw 'scan_limit' }
+    $offset = [int]$Request.scan_offset
+    if ($offset -lt 0 -or $offset -gt 100000) { throw 'scan_limit' }
     $folderId = [string]$Request.folder_id
     if ($folderId -and -not $folderIds.Contains($folderId)) { throw 'folder_outside_scope' }
-    $candidates = @(Get-Candidates $folders ($limit + 1) $folderId $Request.after $Request.before)
+    $candidates = @(Get-Candidates $folders ($offset + $limit + 1) $folderId $Request.after $Request.before)
     $messages = @(); $watch = [Diagnostics.Stopwatch]::StartNew(); $examined = 0
-    foreach ($candidate in ($candidates | Select-Object -First $limit)) {
+    foreach ($candidate in (Get-ScanWindow $candidates $offset $limit)) {
         if ($watch.Elapsed.TotalSeconds -gt 25) { break }
         $examined++
         if ($Request.after -and $candidate.date -lt $Request.after) { continue }
@@ -230,8 +253,9 @@ function Invoke-OutlookRequest($Request) {
         if ($Request.conversation_id -and [string]$item.ConversationID -cne $Request.conversation_id) { continue }
         $messages += Get-Message $item ([bool]$Request.include_body) ([int]$Request.max_characters)
     }
+    $progress = Get-ScanProgress $candidates.Count $offset $examined
     return @{ account = $chosen.address; messages = $messages; scanned_messages = $examined
-        scan_incomplete = ($candidates.Count -gt $limit -or $examined -lt [Math]::Min($limit, $candidates.Count)) }
+        scan_incomplete = $progress.scan_incomplete; next_scan_offset = $progress.next_scan_offset }
 }
 
 if (-not $LibraryOnly) {

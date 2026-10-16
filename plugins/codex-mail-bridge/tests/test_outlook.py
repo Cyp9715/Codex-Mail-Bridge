@@ -1,5 +1,6 @@
 """Synthetic adapter tests; these do not claim another PC or Outlook edition passed."""
 import copy
+from datetime import datetime, timezone
 import base64
 import json
 import os
@@ -12,6 +13,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 import outlook
+import mail_dates
 from accounts import BridgeError
 
 ACCOUNT = {"id": "o_" + "a" * 24, "fingerprint": "b" * 64, "address": "demo@example.test",
@@ -115,6 +117,67 @@ class OutlookTests(unittest.TestCase):
         self.assertEqual(first["next_offset"], 1)
         self.assertFalse(second["has_more"])
 
+    def test_metadata_default_snippet_opt_in_and_bounded_fields(self):
+        self.select()
+        value = outlook.search()
+        self.assertFalse(self.calls[-1][1]["include_body"])
+        self.assertNotIn("body", value["messages"][0])
+        self.assertNotIn("snippet", value["messages"][0])
+        outlook.search(query="Aurora", field="subject")
+        self.assertFalse(self.calls[-1][1]["include_body"])
+        value = outlook.search(query="October", include_snippet=True)
+        self.assertTrue(self.calls[-1][1]["include_body"])
+        self.assertIn("October 20", value["messages"][0]["snippet"])
+        long = {**MESSAGES[0], "subject": "S" * 20000, "recipients": "R" * 20000,
+                "attachment_names": ["F" * 1000] * 200}
+        with patch.object(outlook, "backend", return_value={"account": ACCOUNT["address"], "messages": [long], "scanned_messages": 1, "scan_incomplete": False}):
+            item = outlook.search()["messages"][0]
+        self.assertLess(len(json.dumps(item)), 3000)
+        self.assertTrue(item["attachment_names_truncated"])
+        self.assertIn("subject", item["metadata_truncated_fields"])
+
+    def test_candidate_continuation_is_separate_from_result_pagination(self):
+        self.select()
+        windows = [
+            {"account": ACCOUNT["address"], "messages": [copy.deepcopy(MESSAGES[1])], "scanned_messages": 1, "scan_incomplete": True, "next_scan_offset": 1},
+            {"account": ACCOUNT["address"], "messages": [copy.deepcopy(MESSAGES[0])], "scanned_messages": 1, "scan_incomplete": False, "next_scan_offset": None},
+        ]
+        with patch.object(outlook, "backend", side_effect=windows) as backend:
+            first = outlook.search_attachments(filename="agenda", scan_limit=1)
+            self.assertFalse(first["has_more"])
+            self.assertTrue(first["scan_incomplete"])
+            second = outlook.search_attachments(filename="agenda", scan_limit=1, scan_offset=first["next_scan_offset"])
+        self.assertEqual(backend.call_args.kwargs["scan_offset"], 1)
+        self.assertFalse(backend.call_args.kwargs["include_body"])
+        self.assertEqual(second["messages"][0]["id"], "A" * 32)
+        self.assertIsNone(second["next_scan_offset"])
+
+    def test_calendar_period_and_local_dates_reach_provider_as_utc(self):
+        self.select()
+        now = datetime(2026, 10, 16, tzinfo=timezone.utc)
+        with patch.object(mail_dates, "current_time", return_value=now):
+            result = outlook.search_attachments(period="this_week", time_zone="+09:00")
+        self.assertEqual(self.calls[-1][1]["after"], "2026-10-11T15:00:00+00:00")
+        self.assertEqual(self.calls[-1][1]["before"], "2026-10-18T15:00:00+00:00")
+        self.assertEqual(result["date_range"]["period"], "this_week")
+        outlook.search(after="2026-10-01", time_zone="+09:00")
+        self.assertEqual(self.calls[-1][1]["after"], "2026-09-30T15:00:00+00:00")
+
+    def test_thread_aggregate_budget_and_later_body_section_request(self):
+        self.select()
+        messages = [{**copy.deepcopy(m), "body": "x" * 6000, "body_offset": 0,
+                     "body_offset_unit": "utf16_code_units", "body_characters": 6000} for m in MESSAGES]
+        messages[1].update(body="\U0001f680" * 6000, body_characters=12000)
+        with patch.object(outlook, "backend", return_value={"account": ACCOUNT["address"], "messages": messages, "scanned_messages": 2, "scan_incomplete": False}):
+            value = outlook.thread("conversation-demo", max_total_characters=6500)
+        self.assertEqual(sum(len(m["body"]) for m in value["messages"]), 6500)
+        self.assertTrue(value["body_budget_exhausted"])
+        item = value["messages"][1]
+        self.assertEqual(item["next_body_offset"], 1000)
+        outlook.read(item["id"], body_offset=item["next_body_offset"], max_characters=2000)
+        self.assertEqual(self.calls[-1][1]["body_offset"], 1000)
+        self.assertEqual(self.calls[-1][1]["max_characters"], 2000)
+
     def test_conversation_scope_and_order(self):
         self.select()
         value = outlook.thread("conversation-demo")
@@ -168,11 +231,26 @@ class OutlookTests(unittest.TestCase):
 
 
 class RuntimeTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell syntax check")
+    def test_powershell_sources_parse_without_executing_scripts(self):
+        executable = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+        paths = [Path(outlook.__file__).with_suffix(".ps1"), Path(__file__).with_name("test_outlook_scope.ps1")]
+        command = "$failed=$false; foreach($p in ($env:MAIL_BRIDGE_PARSE_PATHS | ConvertFrom-Json)) { $tokens=$null; $errors=$null; [void][Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors); if($errors.Count) {$failed=$true} }; if($failed) {exit 1}"
+        result = subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-Command", command],
+                                capture_output=True, text=True, timeout=15,
+                                env={**outlook.powershell_environment(), "MAIL_BRIDGE_PARSE_PATHS": json.dumps([str(p) for p in paths])})
+        self.assertEqual(result.returncode, 0, "PowerShell source syntax check failed")
+
     @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell scope test")
     def test_powershell_scope_checks_with_synthetic_objects(self):
         executable = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+        policy = subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-Command", "Get-ExecutionPolicy"],
+                                capture_output=True, text=True, timeout=15, env=outlook.powershell_environment())
+        if policy.returncode == 0 and policy.stdout.strip() in {"Restricted", "AllSigned"}:
+            self.skipTest("PowerShell policy prevents unsigned synthetic test scripts; no policy change or bypass attempted")
         script = Path(__file__).with_name("test_outlook_scope.ps1")
-        result = subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-STA", "-File", str(script)], capture_output=True, text=True, timeout=15)
+        result = subprocess.run([str(executable), "-NoProfile", "-NonInteractive", "-STA", "-File", str(script)], capture_output=True, text=True, timeout=15,
+                                env=outlook.powershell_environment())
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Outlook scope tests passed", result.stdout)
 
@@ -180,6 +258,12 @@ class RuntimeTests(unittest.TestCase):
         with patch.object(outlook.sys, "platform", "linux"):
             with self.assertRaisesRegex(BridgeError, "Windows"):
                 outlook.backend("accounts")
+
+    def test_windows_powershell_module_defaults_preserve_policy(self):
+        with patch.dict(os.environ, {"PSModulePath": "incompatible-module-location", "PSExecutionPolicyPreference": "Restricted"}):
+            environment = {key.upper(): value for key, value in outlook.powershell_environment().items()}
+        self.assertNotIn("PSMODULEPATH", environment)
+        self.assertEqual(environment["PSEXECUTIONPOLICYPREFERENCE"], "Restricted")
 
     def test_runtime_path_uses_system_root_and_json_without_shell(self):
         result = subprocess.CompletedProcess([], 0, json.dumps({"ok": True, "result": {"accounts": []}}), "")
