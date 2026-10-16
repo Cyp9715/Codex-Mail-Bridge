@@ -14,5 +14,10 @@ prefs.js
 *.msf
 *.mbox
 *.eml
+*.msg
+*.pst
+*.ost
+thunderbird.json
+outlook.json
 private/
 *.zip

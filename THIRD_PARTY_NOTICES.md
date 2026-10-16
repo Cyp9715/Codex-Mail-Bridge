@@ -1,24 +1,24 @@
 # Trademark and third-party notices
 
-Thunderbird is a trademark of the Mozilla Foundation in the U.S. and other
-countries. Mozilla and its other product names and logos belong to their owners.
+Mail Bridge is an independent Cyp Soft project. Thunderbird, Microsoft Outlook,
+Microsoft Office, Codex, and ChatGPT identify compatible or related products;
+the project is not published, sponsored, endorsed, or approved by their owners.
+No affiliation, certification, or trademark permission is claimed.
 
-Thunderbird Bridge is an independent Cyp Soft project. It is not published,
-sponsored, endorsed, or approved by Mozilla or the Thunderbird project. No
-affiliation or trademark permission is claimed. References to the Thunderbird
-email client identify the software with which this tool interoperates.
+Thunderbird is a trademark of the Mozilla Foundation in the U.S. and other countries.
+Microsoft, Microsoft Outlook, and Microsoft Office are trademarks of the Microsoft
+group of companies. Other product names and marks belong to their respective owners.
 
-The MIT License for this repository does not license third-party trademarks.
-The project does not include Thunderbird's source code, executable, libraries,
-or official bird logo. Its envelope/link icon was created independently.
+The source is original integration code under MIT. The package contains no
+Thunderbird or Office source, binaries, libraries, official logos, or product icons.
+The envelope/link icon was independently created. MIT does not grant third-party
+trademark rights or licenses to the separately installed applications/services.
+Python/Node.js standard libraries and Windows PowerShell/COM APIs are used; runtimes
+are supplied separately and are not relicensed or downloaded by the plugin.
 
-See [Mozilla Trademark Guidelines](https://www.mozilla.org/en-US/foundation/trademarks/policy/)
-and [Thunderbird rights information](https://updates.thunderbird.net/en-US/thunderbird/about/rights/).
-A non-affiliation notice is not a substitute for permission where a trademark
-use requires permission.
+[Mozilla Trademark Guidelines](https://www.mozilla.org/en-US/foundation/trademarks/policy/)
+· [Thunderbird rights](https://updates.thunderbird.net/en-US/thunderbird/about/rights/)
+· [Microsoft Trademark and Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks)
 
-Python, Node.js, Thunderbird, GitHub, OpenAI, Codex, and ChatGPT are separately
-provided products subject to their own licenses and terms. Their runtimes and
-services are not relicensed by this repository. The plugin uses Python/Node.js
-standard libraries and does not bundle their runtimes or third-party packages.
-No OpenAI logo is used.
+Names in descriptions state interoperability without implying endorsement.
+No OpenAI logo is used. A disclaimer does not substitute for permission where required.

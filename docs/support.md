@@ -1,21 +1,17 @@
 # Support
 
-**Thunderbird Bridge · Cyp Soft**
+Mail Bridge · Cyp Soft
 
-For setup problems, bug reports, and feature requests, use
-[GitHub Issues](https://github.com/Cyp9715/Thunderbird-Bridge/issues).
-Check existing issues before creating a report.
+Use [GitHub Issues](https://github.com/Cyp9715/Codex-Mail-Bridge/issues) for setup problems, bugs, and feature requests.
+Include plugin/client versions, operating system, and a redacted description.
+Check Node/Python availability; for Thunderbird, indexing and registered profiles;
+for Outlook, a running classic Windows profile, unique delivery store, PowerShell
+policy, and security prompts. New Outlook and Mac Outlook are unsupported.
 
-Include the plugin version, operating system, and a redacted description of
-what failed. Check Node.js/Python availability, Thunderbird Global Search and
-Indexer, and whether the selected account has indexed mail.
+Issues are public. Do not post real mail, addresses, server names, profile paths,
+PST/OST, databases, settings, passwords, or identifiers from production messages.
+Use the synthetic `.test` fixtures for reproduction. A non-sensitive issue can
+request a private contact method for security details. There is no dedicated
+private disclosure channel or guaranteed response time.
 
-**Issues are public.** Do not post real emails, account addresses, passwords,
-server names, profile paths, the Thunderbird database, or local settings.
-Reproduce with the provided synthetic `.test` fixtures whenever possible.
-
-For private security details, do not include them in a public issue. You may
-open a non-sensitive request for a private contact method first. There is
-currently no dedicated private disclosure channel or guaranteed response time.
-
-[Privacy notice](privacy.md) · [Terms of use](terms.md)
+[Privacy](privacy.md) · [Terms](terms.md)

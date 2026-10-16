@@ -1,11 +1,19 @@
 {
   "name": "cyp-soft-local",
-  "interface": {"displayName": "Cyp Soft · Local"},
+  "interface": {
+    "displayName": "Cyp Soft · Local"
+  },
   "plugins": [
     {
-      "name": "thunderbird-bridge",
-      "source": {"source": "local", "path": "./plugins/thunderbird-bridge"},
-      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "name": "codex-mail-bridge",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-mail-bridge"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
       "category": "Productivity"
     }
   ]

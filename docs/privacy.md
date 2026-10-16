@@ -1,50 +1,50 @@
 # Privacy notice
 
-**Thunderbird Bridge · Cyp Soft · effective October 16, 2026**
+Mail Bridge · Cyp Soft · effective October 16, 2026
 
-## Local data access
+## Local access
 
-The bridge discovers registered Thunderbird profiles, reads limited account
-identity/server preferences, and queries the local global search index. You
-explicitly select one account before mail can be queried.
+Thunderbird discovery reads registered profiles and limited account/server
+preferences; mail queries read its local global search index. Outlook discovery
+uses the running classic Windows Outlook profile's account and delivery-store
+API. It never guesses or parses PST/OST files. One account per client must be
+explicitly selected. Shared Outlook delivery stores are rejected.
 
-Discovery can return profile names, email addresses, and server metadata to the
-AI host. Selected-account results can contain folder names, dates, subjects,
-senders, recipients, Message-ID headers, indexed body text, and attachment names.
-Password stores and attachment contents are not read.
+Discovery can return profile/account names, addresses, and client metadata to
+the AI host. Selected-account queries can return subjects, senders, recipients,
+dates, folder names/IDs, message/conversation IDs, body text, and attachment names.
+The bridge does not read password stores or attachment contents and does not
+create, send, save, delete, move, or mark mail as read.
 
-## Storage and network behavior
+## Local storage and network
 
-The bridge saves profile/account IDs and an identity fingerprint in per-user
-application settings outside the plugin. It does not save another copy of email
-or modify Thunderbird's mailbox/index. The selection file contains no passwords,
-mail text, account addresses, or absolute profile paths.
+Private per-client settings hold opaque account/profile IDs and identity
+fingerprints outside the plugin. They contain no passwords, addresses, mail,
+or absolute profile paths. Read-only calls may read previous-version selections
+but never migrate or modify settings. A new explicit selection writes only the
+bridge's own settings. Delete current and legacy files to forget selections.
 
-The stdio server makes no network calls and includes no publisher backend,
-analytics, tracking, advertising, or payments. The launcher uses installed
-software and downloads nothing.
+There is no Cyp Soft backend, analytics, telemetry, advertising, payment, or
+mail archive. The launcher downloads nothing. The Python/PowerShell bridge
+does not directly call a network mail service, but Outlook's configured provider
+may fetch data or synchronize as part of its normal client operation. No forced
+sync or security-policy change is implemented. Offline operation is not guaranteed.
 
-## AI host
+## AI host and GitHub
 
-Local execution does **not** make this an offline AI service. Retrieved metadata
-and email text are returned to the AI host that invoked the tool. That host
-processes results under its own settings and policies, including storage and
-retention. Cyp Soft's bridge cannot control or delete the host's chat history.
-Check host policies and your authorization before using confidential/company mail.
+Local execution does not make the AI service offline. Retrieved metadata and
+mail are sent to the invoking AI host under its own settings, storage, and
+retention policies. The bridge cannot delete host chat history. Check host
+policies and organizational authorization before processing confidential mail.
 
-## GitHub and voluntary support
-
-GitHub hosts the project and applies its own policies to visits and interactions.
-If you post an issue, its contents are public and visible to maintainers and other
-users. Do not include private mail, credentials, or account settings. This plugin
-has no separate support-data collection or retention backend.
+GitHub hosts this project under its own policies. Voluntary support issues are
+public. Do not include private mail or settings. There is no separate support
+collection/retention backend.
 
 ## Stop access
 
-Disable/uninstall the plugin to stop its tools. Delete its local selection file
-to forget the account choice. This does not delete Thunderbird mail or AI-host
-conversation history. Use each host's own controls for those records.
-See the [README](../README.md) for settings locations.
-
-For privacy questions, use the [support page](support.md), without disclosing
-private information in public issues.
+Disable/uninstall the plugin and delete its current/legacy selection files to
+forget account choices. This does not erase Thunderbird/Outlook data or AI-host
+history. Use each application's own controls for those records.
+See the [README](../README.md) for settings locations and [support](support.md)
+for privacy questions, keeping private information out of public issues.

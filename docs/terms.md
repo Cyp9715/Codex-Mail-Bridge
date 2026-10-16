@@ -1,24 +1,23 @@
 # Terms of use
 
-**Thunderbird Bridge · Cyp Soft · effective October 16, 2026**
+Mail Bridge · Cyp Soft · effective October 16, 2026
 
-The software is free under the repository's [MIT License](../LICENSE), which
-governs copying, modification, redistribution, and warranty terms. There are no
-purchases, subscriptions, or paid upgrades in this plugin.
+This free software uses the repository's [MIT License](../LICENSE). There are no
+purchases, subscriptions, or paid upgrades. Use accounts/data you are authorized
+to access and check organization rules before sharing mail with an AI service.
 
-Use the bridge only with accounts/data you are authorized to access. Check
-organization requirements before sending mail content to an AI service.
-Thunderbird, the AI host, and GitHub are separate products with their own terms;
-this project does not grant rights to those services.
+Thunderbird results can be incomplete or stale. Outlook searches have explicit
+scan/time/body limits and can be partial. Check important conclusions and reply
+text against original mail. No mailbox creation, sending, draft saving, deletion,
+moving, read-status changes, or attachment-content access is implemented.
 
-The tool reads Thunderbird's local search index. Results can be incomplete,
-outdated, or different from original messages. Verify important conclusions and
-reply drafts against the original mail. Sending, deletion, moving mail,
-read-status changes, draft saving, and attachment-content reading are unsupported.
+Windows with classic Office Standard 2019 x64 has live Outlook evidence. Other
+PCs, Office editions, policies, and client/profile/store layouts need validation;
+new Outlook, web Outlook, and Outlook for Mac are unsupported. This is independent
+of OpenAI's cloud Outlook connector and does not provide licenses for Office,
+Thunderbird, Codex, or other services. Their own terms still apply.
 
-This independent Cyp Soft project is not an official or endorsed Thunderbird,
-Mozilla, or OpenAI product. MIT does not grant third-party trademark rights.
-See [trademark and third-party notices](../THIRD_PARTY_NOTICES.md).
-
-Use the [support page](support.md) for help; there is no guaranteed response time
-or service-level commitment. Read the [privacy notice](privacy.md) before use.
+This independent Cyp Soft project is not endorsed by Mozilla, Thunderbird,
+Microsoft, or OpenAI. MIT does not grant third-party trademark rights. See
+[third-party notices](../THIRD_PARTY_NOTICES.md). No support response time or
+service-level commitment is guaranteed. Read [privacy](privacy.md) before use.

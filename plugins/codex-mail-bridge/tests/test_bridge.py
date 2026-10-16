@@ -37,6 +37,35 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(bridge.call_tool("thunderbird_search", {})["isError"])
         self.assertFalse(accounts.settings_path().exists())
 
+    def test_registered_absolute_profile_in_nonstandard_location(self):
+        home = Path(self.env["THUNDERBIRD_HOME"])
+        (home / "profiles.ini").write_text("[Profile0]\nName=Portable Profile\nIsRelative=0\nPath=" + str(self.profile["path"]) + "\n", encoding="utf-8")
+        discovered = accounts.profiles()
+        self.assertEqual(len(discovered), 1)
+        self.assertEqual(discovered[0]["path"], self.profile["path"])
+
+    def test_windows_appdata_profile_discovery(self):
+        home = Path(self.env["THUNDERBIRD_HOME"])
+        with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
+            os.environ.pop("THUNDERBIRD_HOME", None)
+            os.environ["APPDATA"] = str(home.parent)
+            self.assertEqual(accounts.profiles()[0]["path"], self.profile["path"])
+
+    def test_macos_and_linux_registered_locations(self):
+        base = Path(self.temp.name) / "another user home"
+        for platform, relative in (("darwin", "Library/Thunderbird"), ("linux", ".thunderbird"),
+                                   ("linux", "snap/thunderbird/common/.thunderbird"),
+                                   ("linux", ".var/app/org.mozilla.Thunderbird/.thunderbird")):
+            registry = base / relative / "profiles.ini"
+            registry.parent.mkdir(parents=True, exist_ok=True)
+            registry.write_text("[Profile0]\nName=Alternate\nIsRelative=0\nPath=" + str(self.profile["path"]) + "\n", encoding="utf-8")
+            try:
+                with patch.dict(os.environ), patch.object(accounts.sys, "platform", platform), patch.object(accounts.Path, "home", return_value=base):
+                    os.environ.pop("THUNDERBIRD_HOME", None)
+                    self.assertEqual(accounts.profiles()[0]["path"], self.profile["path"])
+            finally:
+                registry.unlink()
+
     def test_discovery_and_explicit_selection(self):
         self.assertEqual(len(bridge.discover_profiles()["profiles"]), 1)
         self.assertEqual(len(bridge.discover_accounts(self.profile["id"])["accounts"]), 3)
@@ -123,7 +152,7 @@ class BridgeTests(unittest.TestCase):
         with patch.dict(os.environ), patch.object(accounts.sys, "platform", "win32"):
             os.environ.pop("THUNDERBIRD_BRIDGE_SETTINGS", None)
             os.environ["LOCALAPPDATA"] = str(storage)
-            current = storage / "CypSoft/ThunderbirdBridge/settings.json"
+            current = storage / "CypSoft/MailBridge/thunderbird.json"
             self.assertEqual(accounts.settings_path(), current)
             self.assertEqual(bridge.status()["account"], "demo@example.test")
             self.assertEqual({m["id"] for m in bridge.search()["messages"]}, {101, 102, 103})
@@ -165,12 +194,12 @@ class BridgeTests(unittest.TestCase):
 
     def test_no_mail_write_or_attachment_tools(self):
         names = {t["name"] for t in bridge.TOOLS}
-        self.assertEqual(len(names), 7)
+        self.assertEqual(len(names), 13)
         for tool in bridge.TOOLS:
             a = tool["annotations"]
             self.assertIs(a["destructiveHint"], False)
-            self.assertIs(a["openWorldHint"], False)
-            self.assertEqual(a["readOnlyHint"], tool["name"] != "thunderbird_select_account")
+            self.assertEqual(a["openWorldHint"], tool["name"].startswith("outlook_"))
+            self.assertEqual(a["readOnlyHint"], tool["name"] not in {"thunderbird_select_account", "outlook_select_account"})
         for name in ("thunderbird_send", "thunderbird_delete", "thunderbird_attachment"):
             self.assertTrue(bridge.call_tool(name, {})["isError"])
 
@@ -189,8 +218,8 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         replies = [json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual([r["id"] for r in replies], [1, 2, 3])
-        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "thunderbird-bridge", "version": "0.2.0"})
-        self.assertEqual(len(replies[1]["result"]["tools"]), 7)
+        self.assertEqual(replies[0]["result"]["serverInfo"], {"name": "mail-bridge", "version": "0.3.0"})
+        self.assertEqual(len(replies[1]["result"]["tools"]), 13)
         hits = json.loads(replies[2]["result"]["content"][0]["text"])
         self.assertEqual(hits["messages"][0]["id"], 101)
 

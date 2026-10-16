@@ -1,0 +1,140 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-mail-bridge",
+  "version": "0.3.0",
+  "description": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex. Office 2019 supported.",
+  "author": {
+    "name": "Cyp Soft"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mail",
+    "thunderbird",
+    "outlook",
+    "office-2019",
+    "codex",
+    "read-only",
+    "local",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "interface": {
+        "displayName": "Mail Bridge",
+        "shortDescription": "Read Thunderbird & Outlook",
+        "longDescription": "Read explicitly selected Thunderbird and classic Outlook desktop accounts in Codex. Office 2019 for Windows is supported without a Microsoft 365 subscription or Microsoft Graph connection. Discover accounts, search mail, read bodies, follow conversations, and compose reply text in chat. No send, draft-save, delete, move, read-state change, attachment-content, forced-sync, or security-policy changes. Thunderbird uses registered profiles/local index; Outlook discovers the running classic profile through COM, never guessed PST/OST paths. Shared Outlook delivery stores are rejected. Search/body scans can be partial and disclose their limits. Node.js/Python are required; Outlook also needs Windows PowerShell 5.1 and a running classic profile. Windows Office Standard 2019 x64 has live evidence; other Office editions and PCs require validation. New Outlook and Outlook for Mac/web are unsupported. No Cyp Soft backend or analytics. Retrieved metadata and mail go to the AI host. Outlook may fetch data via its provider. Independent Cyp Soft project, not affiliated with Mozilla, Microsoft, or OpenAI. Product names identify interoperability; no third-party logos are used.",
+        "developerName": "Cyp Soft",
+        "category": "Productivity",
+        "capabilities": [
+          "Read"
+        ],
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "defaultPrompt": [
+          "Help me choose one Thunderbird account and check its local mail index.",
+          "Find recent emails about a project in my selected Thunderbird account.",
+          "Summarize a mail conversation and draft a reply in chat."
+        ],
+        "websiteURL": "https://github.com/Cyp9715/Codex-Mail-Bridge",
+        "supportURL": "https://github.com/Cyp9715/Codex-Mail-Bridge/blob/main/docs/support.md",
+        "privacyPolicyURL": "https://github.com/Cyp9715/Codex-Mail-Bridge/blob/main/docs/privacy.md",
+        "termsOfServiceURL": "https://github.com/Cyp9715/Codex-Mail-Bridge/blob/main/docs/terms.md"
+      },
+      "review": {
+        "commerce": false,
+        "commerce_description": "Free distribution. No payments, purchases, paid upgrades, or commerce tools.",
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Run tests/create_demo.py --output <temporary-directory>, set THUNDERBIRD_HOME and THUNDERBIRD_BRIDGE_SETTINGS to its printed paths, and explicitly select the sample demo@example.test account. This is synthetic data, not a real mailbox. Check selection and freshness before email tasks.",
+              "prompt": "Check whether my selected Thunderbird mailbox is indexed and tell me what date its latest indexed email has.",
+              "tools_triggered": "thunderbird_status",
+              "expected_behavior": "Reports only demo@example.test with 3 indexed messages and latest message date 2026-10-15T12:00:00+00:00. Explains the local-index freshness limit rather than claiming live server access."
+            },
+            {
+              "description": "Use the synthetic selected account above. Two Project Aurora messages exist; one is from Alex. Filter by sender and UTC date range.",
+              "prompt": "Find Project Aurora mail from alex@example.test between October 1 and October 16, 2026 inclusive.",
+              "tools_triggered": "thunderbird_search",
+              "expected_behavior": "Calls search with query Project Aurora, sender alex@example.test, after 2026-10-01, before 2026-10-17. Returns message 101 only, citing its real returned subject and sender."
+            },
+            {
+              "description": "Synthetic message 101 is Project Aurora meeting, and its body asks for confirmation by October 20. Read actual indexed text.",
+              "prompt": "Read the Project Aurora meeting email and tell me the requested confirmation deadline.",
+              "tools_triggered": "thunderbird_search, thunderbird_read",
+              "expected_behavior": "Finds message 101 and reads it by message_id 101. Answers October 20 from the returned body; does not invent attachment contents or original MIME availability."
+            },
+            {
+              "description": "Synthetic conversation 10 contains selected-account messages 101/102 and a different account's message 201. Shared conversation IDs must not bypass account scope.",
+              "prompt": "Show the Project Aurora conversation and summarize who said what.",
+              "tools_triggered": "thunderbird_search, thunderbird_thread",
+              "expected_behavior": "Reads thread_id 10. Receives only messages 101 and 102, oldest first. Does not expose private other-account message 201. Summarizes only returned selected-account text."
+            },
+            {
+              "description": "Synthetic selected account has messages 103,102,101 in descending date order. Verify pagination without unrelated mail.",
+              "prompt": "Show my two newest indexed emails, one at a time.",
+              "tools_triggered": "thunderbird_search",
+              "expected_behavior": "Uses limit 1 and offset 0, then offset 1. Returns IDs 103 then 102, handles has_more/next_offset, and describes timestamps as UTC or converts them accurately for the user."
+            },
+            {
+              "description": "Use a dedicated Windows classic Outlook test profile with one unique delivery-store account containing only synthetic .test mail. Account choice must be explicit. Production account access is prohibited for a public demo.",
+              "prompt": "Show my classic Outlook accounts and connect the demo account I choose.",
+              "tools_triggered": "outlook_accounts, outlook_select_account",
+              "expected_behavior": "Lists supported accounts and selects only the explicitly chosen account_id with confirm true. Settings contain opaque ID/fingerprint only. Shared delivery stores are rejected."
+            },
+            {
+              "description": "After selecting the synthetic classic Outlook account, verify scoped folders and freshness limits.",
+              "prompt": "Check my selected Outlook mailbox and explain whether these results are current.",
+              "tools_triggered": "outlook_status",
+              "expected_behavior": "Reports the selected account, returned folder names/counts, latest received date and offline flag. Does not claim live synchronization or a complete server mailbox."
+            },
+            {
+              "description": "In the isolated Outlook test account, use Project Aurora messages from alex@example.test in October 2026. Test Unicode and UTC date bounds with a bounded scan.",
+              "prompt": "Find Outlook Project Aurora mail from Alex in October 2026.",
+              "tools_triggered": "outlook_search",
+              "expected_behavior": "Searches query Project Aurora, sender alex@example.test, after 2026-10-01 and before 2026-11-01. Reports only actual returned mail and discloses scan_incomplete/body limits."
+            },
+            {
+              "description": "Read the meeting mail returned by the synthetic Outlook search. Its body asks for confirmation by October 20. Verify no unread flag changes before and after.",
+              "prompt": "Read that Outlook meeting email and tell me the confirmation deadline.",
+              "tools_triggered": "outlook_read",
+              "expected_behavior": "Uses the returned message_id and cites October 20 from the actual returned body. Does not open a compose window, mark read, save, send, or read attachment contents."
+            },
+            {
+              "description": "Use the conversation_id returned by Outlook search. Another Outlook account or archive store must not be queried. Scan can be incomplete.",
+              "prompt": "Summarize this Outlook conversation and show who said what.",
+              "tools_triggered": "outlook_thread",
+              "expected_behavior": "Reads only selected-store mail for the returned conversation ID, oldest first within the scan. Clearly states partial coverage when scan_incomplete is true and never claims unseen messages."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Sending is unsupported. Explain that only a reply text draft in chat is possible. Do not call any mail tool or claim a send occurred.",
+              "prompt": "Send a new email to alex@example.test saying I approve."
+            },
+            {
+              "description": "Deleting or moving mail is unsupported. Explain this limit; no mail tool should be invoked and no deletion success should be claimed.",
+              "prompt": "Delete every email older than last month from my Outlook mailbox."
+            },
+            {
+              "description": "Attachment contents are unavailable. Explain that the bridge can list names only; do not invoke mail tools or fabricate PDF text.",
+              "prompt": "Open the agenda.pdf attachment from my mail and extract its contents."
+            }
+          ]
+        }
+      },
+      "publication": {
+        "release_notes": "Rename the project to Mail Bridge for Codex; add read-only classic Outlook/Office 2019 support, portable discovery, explicit per-client account scopes, bounded-search reporting, and compatibility evidence.",
+        "countries": [],
+        "translations": {
+          "ko-KR": {
+            "subtitle": "Thunderbird·Outlook 메일 조회",
+            "description": "Codex에서 Thunderbird와 Windows 클래식 Outlook 메일을 조회합니다. Office 2019를 지원하며 Microsoft 365 구독은 필요하지 않습니다. 클라이언트별로 명시적으로 선택한 계정 하나만 검색·읽기·대화 조회하며 채팅에서 답장 문안을 작성할 수 있습니다. 발송·초안 저장·삭제·이동·읽음 변경·첨부 내용 읽기는 지원하지 않습니다. 경로를 고정하지 않고 등록 프로필과 Outlook API로 탐색합니다. 결과는 AI 호스트에 전달되며 검색 범위 제한과 미검증 환경을 명시합니다. Cyp Soft의 독립 프로젝트로 Microsoft·Mozilla·OpenAI의 공식 제품이 아닙니다."
+          }
+        }
+      }
+    }
+  },
+  "homepage": "https://github.com/Cyp9715/Codex-Mail-Bridge",
+  "repository": "https://github.com/Cyp9715/Codex-Mail-Bridge"
+}

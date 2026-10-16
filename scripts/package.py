@@ -8,8 +8,8 @@ import re
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT / "plugins/thunderbird-bridge"
-TEXT_SUFFIXES = {".py", ".cjs", ".json", ".md"}
+PLUGIN = ROOT / "plugins/codex-mail-bridge"
+TEXT_SUFFIXES = {".py", ".cjs", ".ps1", ".json", ".md"}
 
 
 def validate_file(path):
@@ -77,9 +77,9 @@ def main():
         "README.md", "README.ko.md", "LICENSE", "THIRD_PARTY_NOTICES.md", ".gitignore",
         ".gitattributes", ".agents/plugins/marketplace.json", "scripts/package.py")]
     source_files += sorted((ROOT / "docs").glob("*.md"))
-    results = [package(args.output / f"thunderbird-bridge-{version}-plugin.zip",
+    results = [package(args.output / f"codex-mail-bridge-{version}-plugin.zip",
                        [(p, p.relative_to(PLUGIN).as_posix()) for p in plugin_files]),
-               package(args.output / f"thunderbird-bridge-{version}-source.zip",
+               package(args.output / f"codex-mail-bridge-{version}-source.zip",
                        [(p, p.relative_to(ROOT).as_posix()) for p in sorted(set(source_files))])]
     print(json.dumps({"version": version, "artifacts": results}, indent=2))
 

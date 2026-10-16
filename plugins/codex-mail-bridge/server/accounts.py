@@ -19,7 +19,7 @@ class BridgeError(Exception):
 
 
 def settings_path():
-    override = os.environ.get("THUNDERBIRD_BRIDGE_SETTINGS")
+    override = os.environ.get("MAIL_BRIDGE_THUNDERBIRD_SETTINGS") or os.environ.get("THUNDERBIRD_BRIDGE_SETTINGS")
     if override:
         return Path(override).expanduser()
     if sys.platform == "win32":
@@ -28,17 +28,20 @@ def settings_path():
         root = Path.home() / "Library/Application Support"
     else:
         root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return root / "CypSoft/ThunderbirdBridge/settings.json"
+    return root / "CypSoft/MailBridge/thunderbird.json"
 
 
 def selection_path():
     """Read a prior selection without changing files during a read-only tool call."""
     path = settings_path()
-    if os.environ.get("THUNDERBIRD_BRIDGE_SETTINGS") or path.exists():
+    if os.environ.get("MAIL_BRIDGE_THUNDERBIRD_SETTINGS") or os.environ.get("THUNDERBIRD_BRIDGE_SETTINGS") or path.exists():
         return path
     # Previous releases stored the same opaque selection outside the package.
-    previous = path.parent.parent / "ThunderbirdMailBridge/settings.json"
-    return previous if previous.is_file() else path
+    for name in ("ThunderbirdBridge", "ThunderbirdMailBridge"):
+        previous = path.parent.parent / name / "settings.json"
+        if previous.is_file():
+            return previous
+    return path
 
 
 def profile_roots():
