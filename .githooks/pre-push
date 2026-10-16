@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node scripts/run_publication_guard.cjs --all-history

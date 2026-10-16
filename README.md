@@ -94,6 +94,11 @@ own configured provider may retrieve data over the network; offline access and
 live server freshness are not guaranteed. Security prompts require the user's
 normal Outlook controls; the bridge never disables Object Model Guard.
 
+Attached images, inline CID images, PDFs, Word and Excel contents are not readable
+in 0.3.0. The [attachment feasibility review](docs/ATTACHMENT_SUPPORT.md) describes
+the Outlook API extension and optional Thunderbird companion needed to add them.
+These are planned capabilities, not installed tools.
+
 ## Portable discovery and private settings
 
 No fixed mail path or publisher account is assumed. Thunderbird profiles are
@@ -139,6 +144,10 @@ Outlook. See [review walkthrough](plugins/codex-mail-bridge/docs/REVIEW.md) and
 test data, never production mail.
 
 ## Distribution and support
+
+Contributors must follow the [publication controls](docs/DEVELOPMENT_SECURITY.md).
+Local checks cover staged files, commit messages, historical content, and release
+inputs; account-specific protected strings stay in an ignored private denylist.
 
 This is a private/local development plugin with MIT source distribution.
 OpenAI public directory submission is separate. As checked October 16, 2026,

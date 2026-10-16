@@ -6,22 +6,27 @@ import hashlib
 import json
 import re
 import zipfile
+from publication_guard import content_findings, load_denylist, path_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "plugins/codex-mail-bridge"
 TEXT_SUFFIXES = {".py", ".cjs", ".ps1", ".json", ".md"}
 
 
-def validate_file(path):
-    if path.is_symlink():
+def validate_file(path, data=None):
+    if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):
         raise ValueError("Symlinks are not allowed in releases")
-    if path.suffix not in TEXT_SUFFIXES | {".png"} and path.name not in {"LICENSE", ".gitignore", ".gitattributes"}:
+    data = path.read_bytes() if data is None else data
+    findings = path_findings(path.relative_to(ROOT).as_posix()) + content_findings(data, load_denylist(ROOT))
+    if findings:
+        raise ValueError("Publication check failed: " + ", ".join(sorted(set(findings))))
+    if path.suffix not in TEXT_SUFFIXES | {".png"} and path.name not in {"LICENSE", ".gitignore", ".gitattributes", "pre-commit", "commit-msg", "pre-push"}:
         raise ValueError("Unexpected release file type: " + path.name)
     if path.suffix == ".png":
-        if not path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+        if not data.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("Invalid PNG")
         return
-    text = path.read_text(encoding="utf-8")
+    text = data.decode("utf-8")
     for email in re.findall(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", text):
         if not email.lower().endswith(".test"):
             raise ValueError("Non-test email address found in " + path.name)
@@ -34,10 +39,18 @@ def validate_file(path):
 
 
 def package(destination, files):
+    # Inspect every input before creating even a partial distributable archive.
+    snapshots = []
+    for path, relative in files:
+        data = path.read_bytes()
+        validate_file(path, data)
+        snapshots.append((relative, data))
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for path, relative in files:
-            validate_file(path)
-            archive.write(path, relative)
+        for relative, data in snapshots:
+            entry = zipfile.ZipInfo(relative)
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.external_attr = (0o100755 if relative.startswith(".githooks/") else 0o100644) << 16
+            archive.writestr(entry, data)
     with zipfile.ZipFile(destination) as archive:
         if archive.testzip() is not None:
             raise ValueError("Archive verification failed")
@@ -74,8 +87,11 @@ def main():
                                if p.is_file() and "__pycache__" not in p.parts)
     plugin_files = sorted(set(plugin_files))
     source_files = plugin_files + [ROOT / name for name in (
-        "README.md", "README.ko.md", "LICENSE", "THIRD_PARTY_NOTICES.md", ".gitignore",
-        ".gitattributes", ".agents/plugins/marketplace.json", "scripts/package.py")]
+        "README.md", "README.ko.md", "AGENTS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", ".gitignore",
+        ".gitattributes", ".agents/plugins/marketplace.json", "scripts/package.py", "scripts/publication_guard.py",
+        "scripts/run_publication_guard.cjs")]
+    source_files += sorted((ROOT / ".githooks").glob("*"))
+    source_files += sorted((ROOT / "scripts/tests").glob("test_*.py"))
     source_files += sorted((ROOT / "docs").glob("*.md"))
     results = [package(args.output / f"codex-mail-bridge-{version}-plugin.zip",
                        [(p, p.relative_to(PLUGIN).as_posix()) for p in plugin_files]),
