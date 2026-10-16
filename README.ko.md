@@ -8,7 +8,7 @@
 사용 전에 메일 클라이언트에서 로그인하고 필요한 메일을 동기화하세요.
 클래식 Outlook은 로그인된 프로필로 실행 중이어야 합니다. Thunderbird는
 창이 닫혀 있어도 기존 로컬 색인과 캐시를 읽을 수 있습니다.
-플러그인이 로그인하거나 암호를 요청하지 않습니다. Microsoft 365 구독은 필요 없습니다.
+플러그인이 로그인하거나 암호를 요청하지 않습니다.
 
 ## 동작 방식
 
@@ -49,9 +49,11 @@ OpenAI에 전달될 수 있습니다. 로컬 실행이 GPT의 오프라인 처�
 Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 실제로 파일을
 읽었는지는 전달 성공과 별도로 확인해야 합니다.
 
-원본은 파일당 최대 10 MiB, 최대 16개를 비공개 로컬 export 경로에 보관합니다.
+원본은 기본 10 MiB이며, 필요한 파일은 `max_bytes`로 최대 100 MiB까지 허용할 수 있습니다.
+최대 16개를 비공개 로컬 export 경로에 보관합니다.
 짧은 명령 프로세스가 끝나도 읽을 수 있으며, 사용 후 export ID로 정리합니다.
-10분 경과 후 다음 export나 명시적 정리에서 삭제합니다.
+10분 경과 후 다음 export나 명시적 정리에서 삭제합니다. 보관 한도가 차면
+아직 만료되지 않은 파일을 지우지 않고 사용 완료 파일의 정리를 요청합니다.
 잠긴 파일이나 이후 정리가 실행되지 않은 파일은 남을 수 있습니다.
 
 메일 발송·초안 저장·삭제·이동·읽음 변경·강제 동기화·보안 설정 변경은 하지
@@ -63,7 +65,17 @@ Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 �
 저장소의 `.agents/plugins/marketplace.json` 및 `plugins/codex-mail-bridge`를
 호스트의 지원되는 로컬 플러그인 설치 흐름으로 사용하세요.
 설치·업데이트 후 새 로컬 대화에서 Mail Bridge를 선택하세요.
-0.6.0 설치본은 다시 불러와야 서버 없는 새 패키지가 적용됩니다.
+업데이트 후 설치본을 다시 불러와야 새 코드가 적용됩니다.
+
+```powershell
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.0
+```
+
+플러그인 목록에서 Cyp Soft 로컬 마켓플레이스를 선택해 Mail Bridge를 설치하세요.
+0.8.0은 Outlook 검색의 불필요한 COM 조회를 줄이고, Exchange 주소 조회와 원본 파일
+전달을 보완했습니다. Thunderbird의 오래된 mbox는 `cache_scan_offset`으로 이어서
+찾고 `cache_scan_bytes`로 탐색 범위를 넓힐 수 있습니다. Maildir도
+`maildir_scan_offset`으로 이어서 찾고 `maildir_scan_limit`을 조절할 수 있습니다.
 
 ```powershell
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --list
@@ -79,13 +91,9 @@ Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션�
 첨부파일 공급자와 설치된 호스트의 전체 흐름 검증은 아직 남아 있습니다.
 소스는 MIT 라이선스이며 공개 디렉터리의 승인과 별개입니다.
 
-**현재 ZIP은 로컬 데스크톱 배포용이며, OpenAI 디렉터리의 신규 접수 가능 여부는
-확인되지 않았습니다.** MCP 없는 패키지 형식이 문서에 있다는 사실이 현재 신규
-제출을 받는다는 뜻은 아닙니다. 최신 가이드라인이나 포털에 스킬 전용 제출을
-받지 않는다고 안내되어 있다면 이 패키지로 공개 심사를 진행할 수 없습니다.
-코드나 ZIP 변경으로 접수 정책을 우회할 수 없습니다. 먼저 현재 접수 여부를
-확인해야 합니다. 로컬 실행 필수 선언은 그대로 유지합니다.
-[제출 상태](docs/SUBMISSION.md) · [공식 가이드라인](https://developers.openai.com/plugins/plugin-guidelines)
+현재 버전은 로컬 Git 마켓플레이스와 ZIP 배포에 집중합니다.
+OpenAI 공개 제출 포털 없이 로컬 설치할 수 있습니다.
+[로컬 설계 검토](docs/LOCAL_REVIEW.md)에 개선 내용과 남은 검증 범위를 기록했습니다.
 
 [지원](docs/support.md) · [개인정보](docs/privacy.md) · [이용약관](docs/terms.md)
 

@@ -1,5 +1,4 @@
 """Classic Outlook through Windows PowerShell and the documented COM API."""
-import base64
 import json
 import os
 from pathlib import Path
@@ -12,7 +11,7 @@ import attachments
 from mail_dates import resolve_range
 from mail_output import bounded_metadata, budget_bodies, folder_page
 
-NOTICE = ("Sign in and sync in classic Outlook first, then keep it running. Microsoft 365 subscription is not required. "
+NOTICE = ("Sign in and sync in classic Outlook first, then keep it running. "
           "Searches are bounded and report scan_incomplete when partial. Outlook may fetch data "
           "through its configured provider; offline operation or complete sync is not guaranteed. "
           "No send, delete, move, mark-read, or draft-save operations. Attachments are transferred as original files, never parsed or executed.")
@@ -60,7 +59,7 @@ def backend(operation, **arguments):
             "candidate_scan_timeout": "Outlook metadata scan timed out. Narrow the date range or selected folder and retry.",
             "protected_message": "Encrypted/protected Outlook attachments are not transferred.",
             "invalid_attachment_id": "Use an attachment ID returned by the selected message's attachment list.",
-            "unsupported_attachment": "Only by-value attachments up to 10 MiB can be transferred; linked, OLE and embedded-message attachments are unsupported.",
+            "unsupported_attachment": "Only by-value attachments within max_bytes can be transferred (default 10 MiB, maximum 100 MiB); linked, OLE and embedded-message attachments are unsupported.",
             "attachment_changed": "Attachment changed or is outside this message/account. List it again.",
             "attachment_data_unavailable": "The Outlook provider did not expose the original attachment bytes within the size limit.",
             "body_changed": "Message body changed between reads. Restart reading this message.",
@@ -137,7 +136,10 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
     include_body = bool(conversation_id or include_snippet or query and field != "subject")
     value = backend("scan", **selection(), folder_id=folder_id, after=dates["after"] or "", before=dates["before"] or "",
                     include_body=include_body, max_characters=body_limit, scan_limit=scan_limit,
-                    conversation_id=conversation_id, scan_offset=scan_offset)
+                    conversation_id=conversation_id, scan_offset=scan_offset,
+                    include_recipient_details=bool(recipient or query and field == "any" or conversation_id),
+                    include_attachment_names=bool(attachment_query is not None or query and field == "any" or conversation_id),
+                    attachments_only=attachment_query is not None)
     matches = []
     body_matching = bool(query and field in {"any", "body"})
     recipient_matching = bool(recipient or query and field == "any")
@@ -238,20 +240,10 @@ def list_attachments(message_id, limit=20, offset=0):
     return response(value)
 
 
-def source_attachment(message_id, attachment_id):
+def get_attachment(message_id, attachment_id, max_bytes=attachments.MAX_BYTES):
     if not re.fullmatch(r"a_[0-9a-f]{64}", attachment_id):
         raise BridgeError("Use an attachment ID from outlook_list_attachments.")
-    value = attachment_request("attachment", message_id, attachment_id=attachment_id)
-    encoded = value.get("data_base64", "")
-    if not isinstance(encoded, str) or len(encoded) > ((attachments.MAX_BYTES + 2) // 3) * 4:
-        raise BridgeError("Attachment transfer exceeds the byte limit.")
-    try:
-        data = base64.b64decode(encoded, validate=True)
-    except ValueError:
-        raise BridgeError("Outlook returned invalid attachment data.") from None
-    return data, {**value["attachment"], "account": value["account"], "source": "classic_outlook_object_model"}
-
-
-def get_attachment(message_id, attachment_id):
-    data, meta = source_attachment(message_id, attachment_id)
-    return attachments.transfer(data, meta)
+    def write(path):
+        value = attachment_request("attachment", message_id, attachment_id=attachment_id, export_path=str(path.resolve()), max_bytes=max_bytes)
+        return {**value["attachment"], "account": value["account"], "source": "classic_outlook_object_model"}
+    return attachments.export_original(write, max_bytes)

@@ -1,57 +1,41 @@
-# Mail Bridge for Codex
+# Mail Bridge 0.8.0
 
-<img src="assets/icon.png" alt="Mail Bridge icon" width="96">
+Let GPT find and reference email from Thunderbird or classic Outlook already
+signed in on this computer, including Office 2019. Sign in and sync needed mail
+first; keep classic Outlook running in that profile. Thunderbird can read its
+existing index/cache with its window closed.
 
-**A desktop plugin that lets GPT find and reference mail from Thunderbird or
-classic Outlook already signed in on this computer, including Office 2019.**
+This local plugin combines a skill and one-shot CLI commands. It needs host
+command/file tools and Python 3.10+. Node.js is an optional launcher. Outlook needs
+Windows PowerShell 5.1 under its existing policy. No remote service, MCP server,
+mail credentials, API key or downloaded runtime is required by the bridge.
 
-**Sign in to your desktop mail client and sync the mail you need before use.
-Keep classic Outlook running in that signed-in profile.** Thunderbird can read
-an existing local index/cache with its window closed. The bridge does not log in
-or request passwords. A Microsoft 365 subscription is not required.
+## Install and update
 
-Version 0.7.0 uses a **skill and one-shot local scripts**. No MCP server, network
-listener, Cyp Soft backend or cloud mail connection is needed. The installed
-skill invokes only the requested local operation and receives compact JSON.
-Retrieved account details, mail text and files opened by the AI host can be sent
-to OpenAI for the requested task. Local access does not mean offline GPT processing.
+Register the Git source and install Mail Bridge from the Cyp Soft local
+marketplace in the host plugin browser:
 
-## Supported environment
+```powershell
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.0
+```
 
-| Area | Requirement |
-| --- | --- |
-| Host | Local desktop conversation with permission to execute commands and read files; web/mobile and cloud-only sessions cannot access the desktop mailbox |
-| Runtime | Existing Python 3.10+; optional Node.js launcher discovers a runtime without downloads |
-| Thunderbird | Signed-in IMAP/POP3 account, registered profile and existing local global index; selected original files also need a safely mapped MIME cache |
-| Classic Outlook | Running Windows classic Outlook profile, including Office 2019, and Windows PowerShell 5.1 with its existing script policy |
-| Host file analysis | Authorized host document/image tools; exporting a file does not establish that GPT has read it |
+For ZIP distribution, extract this directory and use the host's supported local
+marketplace setup. Preserve other marketplace entries. Reload/reinstall after an
+update and start a new local conversation. Editing source does not rewrite an
+installed plugin cache. Public-directory submission is not required.
 
-New Outlook, web Outlook and Outlook for Mac are unsupported. Shared Outlook
-delivery stores and additional archive stores are rejected. Local indexes/caches
-may be incomplete or stale; Outlook's own provider may fetch data normally.
-The bridge does not force sync or weaken client or script security policies.
+## Workflow
 
-## Local installation and use
-
-Install this plugin directory using the host's supported local marketplace
-flow. The source repository includes `.agents/plugins/marketplace.json`; preserve other
-marketplace entries. Start a new local conversation after installation/reload and
-select Mail Bridge. An old cached 0.6.0 installation must be reloaded to pick up
-the skill-only package; editing source does not rewrite installed caches.
-
-Ask for the intended client/account, such as:
-
-- Find Project Aurora mail in my selected Thunderbird account after October 1.
-- Read the relevant classic Outlook conversation and summarize the decisions.
-- Find the requested PDF by sender and date, then read only that original file.
-
-The skill checks the account's status and obtains an explicit account choice when
-needed. It never silently selects all accounts, combines clients or switches
-accounts. Existing authorized selections are preserved. Discovery itself returns
-personal profile/account metadata to the AI host.
-
-There are 19 local operations. Each schema is available on demand, without reading
-mail or loading every schema into the conversation:
+1. Select the intended client and explicitly choose one account. Existing account
+   authorization persists; the bridge never combines or switches accounts silently.
+2. Search date/time, subject, sender, recipient, folder or indexed text. Responses
+   default to small metadata pages. GPT resolves dates/timezones into inclusive
+   after/exclusive before bounds; either can be omitted.
+3. Read relevant body sections/conversations. Continue result/candidate pages and
+   inspect incomplete/truncated flags. Broad tasks can span many pages.
+4. Search attachment metadata, list one message, then get needed originals.
+   GPT and host tools interpret the files. The bridge performs no PDF/Office/ZIP
+   parsing, OCR, image analysis or attachment execution.
 
 ```powershell
 node ./scripts/mail_bridge.cjs --list
@@ -59,107 +43,49 @@ node ./scripts/mail_bridge.cjs --describe outlook_search
 node ./scripts/mail_bridge.cjs --call outlook_status
 ```
 
-If Node is unavailable, run `python ./server/bridge.py`
-with the same arguments using a verified Python 3.10+ interpreter. Query values
-are JSON data from stdin or a private UTF-8 argument file, never executable shell
-fragments. See the [CLI contract](docs/CLI.md).
+Without Node, use a verified Python with ./server/bridge.py and the same options.
+MAIL_BRIDGE_PYTHON can select one. Arguments are private UTF-8 JSON data via
+--arguments-file or explicit --arguments-stdin; never put mail into executable
+shell fragments. Read only the needed operation schema.
 
-## Targeted queries and broad review
+## Originals and coverage
 
-| Caller control | Behavior |
-| --- | --- |
-| after / before | Arbitrary inclusive start and exclusive end; either can be omitted; RFC 3339 timestamps with Z/offset or UTC dates |
-| query / field / sender / recipient / folder_id | Literal selected-account filters |
-| filename | Attachment metadata filter; no document contents are opened to search filenames |
-| limit / offset | Bounded result pages; defaults limit each response, not the whole user task |
-| folder_limit / folder_offset | Status folder pages while retaining account-wide counts |
-| scan_limit / scan_offset | Outlook candidate windows and continuation; partition by date/folder for wider coverage |
-| body_search_limit | Outlook local body matching depth without returning matching bodies |
-| max_characters / body_offset / expected_body_sha256 | Targeted body sections with optional revision consistency |
-| max_characters_per_message / max_total_characters | Per-message and aggregate conversation body budgets |
-| include_snippet | Optional body previews; off by default |
+Get returns generated local_path, name, bytes, SHA-256 and export_id. Default
+10 MiB; max_bytes can allow a needed original up to 100 MiB. Host tools have
+separate limits. JSON contains no base64 or pixels. Verify actual host access.
 
-GPT resolves relative dates, language and timezone conventions. The bridge exposes
-explicit bounds instead of language-specific presets. Search returns metadata by
-default; `search_incomplete`, `scan_incomplete`, matching truncation and
-`coverage_scope` must be considered even when no matches are returned. Pagination
-and date/folder partitions support authorized broad work. Empty local results do
-not establish absence from the server mailbox.
+Up to 16 exports survive CLI exit. A full store preserves unexpired files and
+returns export_limit. Consume batches and run --release EXPORT_ID after use.
+Later exports or --cleanup remove copies older than ten minutes. OS locks
+serialize export/cleanup; retry export_busy sequentially. Locked files or no
+later cleanup can leave copies. No background cleaner runs.
 
-## Selected original attachments and images
+Thunderbird uses its global index and registered MIME cache paths. Older mbox
+windows continue through error.details.next_cache_scan_offset; cache_scan_bytes
+and maildir_scan_limit support broader identity searches. Maildir windows continue
+with next_maildir_scan_offset and maildir_scan_offset. Keep successful cache
+options for get. Missing caches and hashed/special layouts can remain unsupported.
 
-Search subject/date/sender/filename metadata, list one candidate message, then get
-only the relevant original attachment by its opaque ID. Duplicate filenames are
-distinct IDs. Original files up to 10 MiB are exported unchanged to generated local
-paths with byte counts, SHA-256 and export IDs. PDF/Office documents remain files
-for the host's authorized tools. Inline images are viewed through the host's image
-tool only when needed. The CLI emits no base64, image pixels or document text.
+Outlook subject/newest scans avoid unneeded collection enumeration. Omitted
+filenames/recipient details carry flags. Attachment searches filter the provider
+table before candidate windows. Exchange SMTP resolution is attempted when
+available; by-value originals save directly to a generated private file.
 
-The bridge has no PDF/Office parsers, OCR, attachment execution, cloud upload API
-or implicit bulk transfer. User-requested broad review can retrieve multiple
-relevant originals in manageable batches. Verify host access before claiming
-that GPT read a document.
+## Data and compatibility
 
-Exports survive the short CLI process so the host can read them. They are stored
-under the private application-data settings directory, at most 16 files, with a
-10-minute lazy expiry on later exports or explicit `--cleanup`. Release each file
-with `--release <export_id>` after analysis. Locked files or no later cleanup can
-leave copies. Account changes cannot recall existing host/chat copies.
-See [attachment support](docs/ATTACHMENT_SUPPORT.md).
+Mailbox access is read-only. Selection changes private settings; get creates an
+original copy. No sending, draft saves, deletion, moving, marking read, forced
+sync, policy changes or remote image fetching. Reply drafts stay in chat.
+Retrieved mail and host-opened files can reach OpenAI; local execution does not
+make GPT offline. Releasing exports cannot recall host/chat copies.
 
-Mailbox access stays read-only: no sending, compose windows, draft saves, deletion,
-moving, read-state changes, forced sync, policy changes or arbitrary SQL/PowerShell.
-Reply drafts remain in chat. Account selection writes only private bridge settings;
-attachment retrieval writes selected original copies outside the plugin.
+New/web/Mac Outlook, shared delivery stores and extra archive stores are
+unsupported. Indexes/caches can be stale or incomplete. Native Outlook attachment
+export and installed-host workflows still need live validation.
 
-## Portable discovery and private settings
+[CLI contract](docs/CLI.md) · [Local review](docs/LOCAL_REVIEW.md) ·
+[Attachment support](docs/ATTACHMENT_SUPPORT.md) · [Verification](docs/REVIEW.md) ·
+[Privacy](docs/privacy.md) · [Support](docs/support.md)
 
-Thunderbird uses registered `profiles.ini` paths, including absolute/nonstandard
-profiles; standard Windows/macOS/Linux, Snap and Flatpak registries are recognized.
-`THUNDERBIRD_HOME` can identify another registry. Outlook uses its running profile's
-account and delivery-store API; it does not guess or parse PST/OST paths.
-
-| OS | Default settings directory |
-| --- | --- |
-| Windows | `%LOCALAPPDATA%/CypSoft/MailBridge/` |
-| macOS | `~/Library/Application Support/CypSoft/MailBridge/` (Thunderbird) |
-| Linux | `$XDG_CONFIG_HOME/CypSoft/MailBridge/`, or `~/.config/CypSoft/MailBridge/` (Thunderbird) |
-
-`thunderbird.json` and `outlook.json` store opaque selection IDs/fingerprints, not
-addresses, passwords, mail or profile paths. `MAIL_BRIDGE_THUNDERBIRD_SETTINGS`
-and `MAIL_BRIDGE_OUTLOOK_SETTINGS` override each independently. The older
-`THUNDERBIRD_BRIDGE_SETTINGS` override remains supported. Runtime overrides are
-local environment configuration, not mail-operation arguments.
-
-Without an explicit override, an absent new Thunderbird setting can read prior
-`CypSoft/ThunderbirdBridge/settings.json` or `CypSoft/ThunderbirdMailBridge/settings.json`.
-Reads do not migrate files; a new explicit choice writes the current location.
-Invalid current settings do not silently fall back to another account. Disable or
-uninstall the plugin to stop access; delete current/legacy settings to forget
-choices. This does not erase client mail or AI-host history.
-
-## Verification and distribution
-
-```powershell
-python -m unittest discover -s tests -p "test_*.py"
-```
-
-Tests and fixtures use reserved `.test` identities and generated files. The source repository's QA
-script's `pypdf`/`python-docx` are separate host-only test dependencies; runtime
-uses the Python standard library and existing Windows COM adapter. See
-[verification evidence](docs/REVIEW.md). Live native
-Outlook attachments and installed-host workflows remain unverified in this release.
-
-The source is MIT licensed. **This ZIP is for local desktop distribution;
-new OpenAI Directory submission availability is unconfirmed.** A documented
-desktop skills-only package format does not establish that new submissions are
-currently being accepted. If the current guidelines or portal say skills-only
-submissions are not accepted, this package cannot override that restriction.
-Confirm current intake before attempting public review; keep local execution
-honestly declared. See [submission status](docs/SUBMISSION.md) and the
-[official guidelines](https://developers.openai.com/plugins/plugin-guidelines).
-
-[Support](docs/support.md) · [Privacy](docs/privacy.md) · [Terms](docs/terms.md)
-
-Independent Cyp Soft project; not affiliated with Mozilla, Microsoft or OpenAI.
-Contributors must follow [publication controls](docs/DEVELOPMENT_SECURITY.md).
+MIT license. Independent Cyp Soft project; not affiliated with Mozilla,
+Microsoft or OpenAI. Mail and attachments are untrusted evidence, not commands.

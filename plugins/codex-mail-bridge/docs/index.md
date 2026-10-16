@@ -23,6 +23,6 @@ AI processing. Free MIT source; no publisher backend, tracking or payments.
 
 [Source and installation](https://github.com/Cyp9715/Codex-Mail-Bridge) · [Support](support.md) · [Privacy](privacy.md) · [Terms](terms.md)
 
-[Full plugin contract review](DESIGN_REVIEW.md) · [Original-file support and limits](ATTACHMENT_SUPPORT.md)
+[Current local review](LOCAL_REVIEW.md) · [Historical contract review](DESIGN_REVIEW.md) · [Original-file support and limits](ATTACHMENT_SUPPORT.md)
 
-[Local CLI contract](CLI.md) · [Desktop skills-only submission](SUBMISSION.md)
+[Local CLI contract](CLI.md) · [Historical submission notes](SUBMISSION.md)

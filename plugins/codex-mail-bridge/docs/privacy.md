@@ -1,6 +1,6 @@
 # Privacy notice
 
-Mail Bridge · Cyp Soft · effective October 16, 2026
+Mail Bridge · Cyp Soft · effective October 17, 2026
 
 ## Local access
 
@@ -28,12 +28,14 @@ but never migrate or modify settings. A new explicit selection writes only the
 bridge's own settings. Delete current and legacy files to forget selections.
 
 Attachment get creates a generated private local export directory and basename
-containing exact original bytes, up to 10 MiB. The host receives path, name, size,
+containing exact original bytes, default 10 MiB and up to 100 MiB when explicitly
+allowed through max_bytes. The host receives path, name, size,
 hash, content type and export ID. Exports survive command exit so the host can read
 them. The default export root is `exports/` under the private settings directory;
 `MAIL_BRIDGE_EXPORT_ROOT` can override it locally. Up to 16 files are retained.
-Later exports or explicit `--cleanup` remove files older than 10 minutes; newer
-exports can evict older files. `--release <export_id>` removes one finished export.
+Later exports or explicit `--cleanup` remove files older than 10 minutes; a full store
+preserves unexpired files and asks the caller to release finished exports.
+An OS file lock serializes concurrent export/cleanup operations. `--release <export_id>` removes one finished export.
 Cleanup removes only recognized generated files and empty directories, without
 recursive deletion or following root/child links. Locked files or no later cleanup
 can leave copies. There is no background deletion process. Switching accounts

@@ -13,7 +13,7 @@ from urllib.parse import unquote, urlsplit
 import attachments
 from accounts import BridgeError, database, read_accounts, selection
 
-MAX_MESSAGE = 32 * 1024 * 1024
+MAX_MESSAGE = 160 * 1024 * 1024
 MAX_SCAN = 64 * 1024 * 1024
 MAX_HEADERS = 65536
 
@@ -94,7 +94,21 @@ def read_regular(path, limit):
     return data
 
 
-def mbox_message(path, expected, message_key):
+def read_mbox_record(source):
+    data = bytearray()
+    while len(data) <= MAX_MESSAGE:
+        previous = len(data)
+        chunk = source.read(min(65536, MAX_MESSAGE + 1 - previous))
+        if not chunk:
+            return bytes(data)
+        data.extend(chunk)
+        boundary = data.find(b"\nFrom ", max(0, previous - 6))
+        if boundary >= 0:
+            return bytes(data[:boundary + 1])
+    raise BridgeError("Cached message exceeds the local transfer safety limit.")
+
+
+def mbox_message(path, expected, message_key, cache_scan_bytes=MAX_SCAN, cache_scan_offset=0):
     with path.open("rb") as source:
         info = os.fstat(source.fileno())
         if not stat.S_ISREG(info.st_mode):
@@ -103,36 +117,47 @@ def mbox_message(path, expected, message_key):
         if type(message_key) is int and 0 <= message_key < info.st_size:
             source.seek(message_key)
             if source.readline(MAX_HEADERS).startswith(b"From "):
-                raw = source.read(MAX_MESSAGE + 1)
-                boundary = re.search(rb"(?m)^From ", raw)
-                raw = raw[:boundary.start()] if boundary else raw
-                if len(raw) <= MAX_MESSAGE and identity(raw) == expected:
-                    return raw
+                beginning = source.tell()
+                if identity(source.read(MAX_HEADERS)) == expected:
+                    source.seek(beginning)
+                    return read_mbox_record(source)
         # Bounded recent-cache fallback handles stores whose keys are not offsets.
-        start = max(0, info.st_size - MAX_SCAN)
+        end_window = max(0, info.st_size - cache_scan_offset)
+        start = max(0, end_window - cache_scan_bytes)
         source.seek(start)
-        window = source.read(MAX_SCAN)
-    starts = [m.start() for m in re.finditer(rb"(?m)^From ", window)]
-    matches = []
-    deadline = time.monotonic() + 5
-    for n, offset in enumerate(starts):
-        if time.monotonic() > deadline:
-            raise BridgeError("Bounded mail-cache scan timed out. No attachment was returned.")
-        end = starts[n + 1] if n + 1 < len(starts) else len(window)
-        newline = window.find(b"\n", offset, end)
-        raw = window[newline + 1:end] if newline >= 0 else b""
-        if len(raw) <= MAX_MESSAGE and identity(raw) == expected:
-            matches.append(raw)
-            if len(matches) > 1:
-                raise BridgeError("Ambiguous message identity in the local cache.")
+        window = source.read(end_window - start)
+        starts = [m.start() for m in re.finditer(rb"(?m)^From ", window)]
+        matches = []
+        deadline = time.monotonic() + 5
+        for offset in starts:
+            if time.monotonic() > deadline:
+                raise BridgeError("Bounded mail-cache scan timed out. No attachment was returned.")
+            source.seek(start + offset)
+            if start + offset > 0:
+                source.seek(start + offset - 1)
+                if source.read(1) != b"\n":
+                    continue
+            source.readline(MAX_HEADERS)
+            beginning = source.tell()
+            if identity(source.read(MAX_HEADERS)) == expected:
+                source.seek(beginning)
+                matches.append(read_mbox_record(source))
+                if len(matches) > 1:
+                    raise BridgeError("Ambiguous message identity in the local cache.")
     if len(matches) != 1:
-        raise BridgeError("Message is not available in the bounded local MIME cache. Sync normally in Thunderbird; no network fetch is attempted.")
+        raise BridgeError("Message was not found in this local mbox window. Continue older windows or check the synced cache.",
+                          code="cache_search_incomplete" if start > 0 else "cache_message_unavailable",
+                          retryable=start > 0, next_action="continue_cache_scan" if start > 0 else "check_client_cache",
+                          details={"next_cache_scan_offset": info.st_size - start if start > 0 else None,
+                                   "cache_scan_bytes": cache_scan_bytes})
     return matches[0]
 
 
-def maildir_message(path, expected):
+def maildir_message(path, expected, maildir_scan_limit=2000, maildir_scan_offset=0):
     matches = []
     inspected = 0
+    seen = 0
+    next_offset = None
     deadline = time.monotonic() + 5
     for name in ("cur", "new"):
         folder = path / name
@@ -142,9 +167,14 @@ def maildir_message(path, expected):
         if not folder.is_relative_to(path):
             raise BridgeError("Maildir cache escaped the selected folder.")
         for item in folder.iterdir():
+            index = seen
+            seen += 1
+            if index < maildir_scan_offset:
+                continue
+            if inspected >= maildir_scan_limit or time.monotonic() > deadline:
+                next_offset = index
+                break
             inspected += 1
-            if inspected > 2000 or time.monotonic() > deadline:
-                raise BridgeError("Bounded maildir scan is incomplete. No attachment was returned.")
             if item.is_symlink() or not item.is_file() or not item.resolve().is_relative_to(folder):
                 continue
             with item.open("rb") as source:
@@ -153,12 +183,18 @@ def maildir_message(path, expected):
                 matches.append(read_regular(item, MAX_MESSAGE))
                 if len(matches) > 1:
                     raise BridgeError("Ambiguous message identity in the local cache.")
+        if next_offset is not None:
+            break
     if len(matches) != 1:
-        raise BridgeError("Message is not present in the local maildir cache.")
+        raise BridgeError("Message was not found in this local maildir window.",
+                          code="cache_search_incomplete" if next_offset is not None else "cache_message_unavailable",
+                          retryable=next_offset is not None,
+                          next_action="continue_cache_scan" if next_offset is not None else "check_client_cache",
+                          details={"next_maildir_scan_offset": next_offset, "maildir_scan_limit": maildir_scan_limit})
     return matches[0]
 
 
-def selected_message(message_id):
+def selected_message(message_id, cache_scan_bytes=MAX_SCAN, cache_scan_offset=0, maildir_scan_limit=2000, maildir_scan_offset=0):
     with database() as (db, folders, profile, account):
         columns = {r["name"] for r in db.execute("PRAGMA table_info(messages)")}
         key = "m.messageKey" if "messageKey" in columns else "NULL"
@@ -173,7 +209,8 @@ def selected_message(message_id):
         if not expected or "\n" in expected or "\r" in expected:
             raise BridgeError("Indexed message identity is unavailable.")
         path, contract = scoped_cache_path(profile, account, row["folderURI"])
-        raw = maildir_message(path, expected) if "maildirstore" in contract else mbox_message(path, expected, row["cache_key"])
+        raw = (maildir_message(path, expected, maildir_scan_limit, maildir_scan_offset) if "maildirstore" in contract else
+               mbox_message(path, expected, row["cache_key"], cache_scan_bytes, cache_scan_offset))
         if identity(raw) != expected:
             raise BridgeError("Cached MIME does not match the selected indexed message.")
         current_profile, current_account = selection()
@@ -219,8 +256,8 @@ def parts(raw, account, message_id):
     return result
 
 
-def list_attachments(message_id, limit=20, offset=0):
-    raw, account = selected_message(message_id)
+def list_attachments(message_id, limit=20, offset=0, cache_scan_bytes=MAX_SCAN, cache_scan_offset=0, maildir_scan_limit=2000, maildir_scan_offset=0):
+    raw, account = selected_message(message_id, cache_scan_bytes, cache_scan_offset, maildir_scan_limit, maildir_scan_offset)
     found = parts(raw, account, message_id)
     return {"account": account["emails"][0], "source": "local_thunderbird_mime_cache", "message_id": message_id,
             "attachments": [m for m, _ in found[offset:offset + limit]], "returned": len(found[offset:offset + limit]),
@@ -229,10 +266,10 @@ def list_attachments(message_id, limit=20, offset=0):
             "notice": "Local cached MIME only; missing/hashed folder layouts may be unsupported. No network download or document parsing."}
 
 
-def source_attachment(message_id, attachment_id):
+def source_attachment(message_id, attachment_id, max_bytes=attachments.MAX_BYTES, **cache_options):
     if not re.fullmatch(r"a_[0-9a-f]{64}", attachment_id):
         raise BridgeError("Use an attachment ID from thunderbird_list_attachments.")
-    raw, account = selected_message(message_id)
+    raw, account = selected_message(message_id, **cache_options)
     for meta, part in parts(raw, account, message_id):
         if meta["id"] == attachment_id:
             if part.defects:
@@ -243,8 +280,8 @@ def source_attachment(message_id, attachment_id):
             data = part.get_payload(decode=True)
             if not isinstance(data, bytes) or part.defects:
                 raise BridgeError("Attachment MIME encoding is unavailable or malformed.")
-            if len(data) > attachments.MAX_BYTES:
-                raise BridgeError("Attachment exceeds the 10 MiB transfer limit.")
+            if len(data) > max_bytes:
+                raise BridgeError("Attachment exceeds the requested byte limit.")
             current_profile, current_account = selection()
             if current_profile["id"] + current_account["fingerprint"] != account["cache_scope"]:
                 raise BridgeError("Selected account changed during attachment access.")
@@ -252,6 +289,8 @@ def source_attachment(message_id, attachment_id):
     raise BridgeError("Attachment changed or is outside the selected message/account. List it again.")
 
 
-def get_attachment(message_id, attachment_id):
-    data, meta = source_attachment(message_id, attachment_id)
-    return attachments.transfer(data, meta)
+def get_attachment(message_id, attachment_id, max_bytes=attachments.MAX_BYTES, cache_scan_bytes=MAX_SCAN, cache_scan_offset=0, maildir_scan_limit=2000, maildir_scan_offset=0):
+    data, meta = source_attachment(message_id, attachment_id, max_bytes=max_bytes, cache_scan_bytes=cache_scan_bytes,
+                                  cache_scan_offset=cache_scan_offset, maildir_scan_limit=maildir_scan_limit,
+                                  maildir_scan_offset=maildir_scan_offset)
+    return attachments.transfer(data, meta, max_bytes)

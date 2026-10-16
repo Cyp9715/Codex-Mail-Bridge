@@ -1,6 +1,6 @@
 # Original attachment handoff
 
-Version 0.7.0 retains the original-file handoff introduced in 0.4.0. It supports
+Version 0.8.0 retains the original-file handoff introduced in 0.4.0. It supports
 Thunderbird local MIME caches and classic Outlook by-value attachments. There are
 six attachment operations, for 19 local CLI operations in total; no MCP server is used.
 The bridge does not parse PDF, Word, Excel, archives or other document contents,
@@ -20,7 +20,7 @@ selected account:
    Default 20 entries, maximum 50 per page, within a 200-attachment safety bound.
    Duplicate filenames get distinct opaque IDs; inline images include content IDs.
 3. `*_get_attachment(message_id, attachment_id)` transfers **one** needed original,
-   at most 10 MiB. Never enumerate and transfer all mailbox attachments implicitly.
+   default 10 MiB; `max_bytes` may explicitly allow up to 100 MiB. Never enumerate and transfer all mailbox attachments implicitly.
    User-requested broad review may search many pages and transfer relevant originals
    in manageable batches.
 
@@ -45,8 +45,9 @@ requested inline images. A local path is not proof of analysis or cloud upload.
 
 Exports survive process exit. They default to `exports/` under the private settings
 directory, with an optional local `MAIL_BRIDGE_EXPORT_ROOT` override. At most 16
-files are retained, up to 10 MiB each. Later exports or `--cleanup` remove managed
-files older than 10 minutes; the next export can evict the oldest managed file.
+files are retained, default 10 MiB each and up to 100 MiB on explicit request. Later exports or `--cleanup` remove managed
+files older than 10 minutes; a full store returns `export_limit` without evicting an unexpired file.
+OS locking serializes export and cleanup across processes.
 Run sequentially, consume each batch, then `--release <export_id>` for each finished
 file. The CLI never recursively deletes arbitrary paths, and refuses/skips linked
 export roots or children. Locked files or no later cleanup can leave copies.
@@ -67,10 +68,14 @@ paths are refused. Normal nested `.sbd` folders and Unicode/custom paths are sup
 hashed/special folder layouts that cannot be safely mapped are unsupported.
 
 Only a scoped, nondeleted indexed message is eligible. Its RFC Message-ID must
-match cached MIME. An offset-like `messageKey` is verified; otherwise a bounded
-recent 64 MiB mbox scan or at most 2,000 maildir files is used, with a five-second
-scan budget and a 32 MiB message cap. Older messages outside those fallback bounds
-can be unavailable even when their index entries exist. Missing/ambiguous identities,
+match cached MIME. An offset-like `messageKey` is verified; otherwise a 64 MiB mbox window or at most 2,000 maildir files is used by default,
+with a five-second scan budget and a 160 MiB message cap. Callers can follow older
+`cache_scan_offset` windows, widen `cache_scan_bytes` up to 256 MiB, or raise
+`maildir_scan_limit` up to 100,000 and continue `maildir_scan_offset` windows.
+Maildir misses disclose `next_maildir_scan_offset`; filesystem changes can shift
+entry windows. Missing mbox results disclose the next window
+in structured error details. Full MIME is read only for matching header identities;
+messages crossing window boundaries remain complete. Missing/ambiguous identities,
 unavailable cache and changed account/message/attachment IDs fail closed.
 
 MIME handling only separates/decode-transports attachments. Listing reads one
@@ -87,10 +92,14 @@ claimed implemented in this release.
 The existing COM adapter checks the selected account fingerprint, unique delivery
 store, eligible folder and item's parent before attachment access. Metadata IDs bind
 the account, message, index, filename, size, type, content ID and modification time.
-Only by-value files up to 10 MiB are transferred via
-[PidTagAttachDataBinary](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/pidtagattachdatabinary-canonical-property)
-and [Attachment.PropertyAccessor](https://learn.microsoft.com/en-us/office/vba/api/outlook.attachment.propertyaccessor).
-No `SaveAsFile`, message save, UI opening or read-state assignment is used.
+Only by-value files within the requested `max_bytes` limit (default 10 MiB,
+maximum 100 MiB) are copied using the documented
+[Attachment.SaveAsFile](https://learn.microsoft.com/en-us/office/vba/api/outlook.attachment.saveasfile)
+method. The destination is a bridge-generated private file, never an input path
+or attachment filename. Python checks the file type, actual byte limit, SHA-256
+and account selection, then returns only metadata. No base64 attachment bytes are
+transported over JSON. A failed provider or identity check attempts to remove its partial
+copy; locked files can remain for later cleanup. No message save, UI opening or read-state assignment is used.
 
 Listings include at most 200 attachments and disclose truncation. Linked/cloud,
 OLE, embedded-message and protected/IRM/S/MIME items are unsupported. Providers may

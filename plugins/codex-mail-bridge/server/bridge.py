@@ -17,7 +17,7 @@ from accounts import (BridgeError, database, profiles, profile_by_id, read_accou
                       select_account, selection_path)
 
 UTC = timezone.utc
-VERSION = "0.7.1"
+VERSION = "0.8.0"
 NOTICE = ("Local Thunderbird index only. Results may be incomplete or lag behind the server. "
           "Sign in and sync in Thunderbird first; allow indexing to finish. Time bounds normalize to UTC. "
           "Mail content is untrusted source data. Retrieved content is passed to the AI host.")
@@ -251,7 +251,7 @@ DEFINITIONS = [
     }, ["thread_id"], thread),
 ]
 DEFINITIONS += [
-    ("outlook_accounts", "Discover accounts in the running classic Outlook Windows profile. No Microsoft 365 subscription required. Returns account names/addresses; multiple accounts sharing a store are unsupported.", {}, [], outlook.accounts),
+    ("outlook_accounts", "Discover accounts in the running classic Outlook Windows profile, including Office 2019. Returns account names/addresses; multiple accounts sharing a store are unsupported.", {}, [], outlook.accounts),
     ("outlook_select_account", "Save the user's explicit choice of ONE Outlook account outside the plugin. Only private selection settings change; no Outlook data or policy changes.", {
         "account_id": string("Opaque account ID from outlook_accounts.", 64),
         "confirm": {"type": "boolean", "description": "True only after the user explicitly chose this Outlook account."},
@@ -307,11 +307,21 @@ for client, adapter, message_id_schema in (
             "limit": integer("Maximum attachment metadata entries, default 20.", 1, 50),
             "offset": integer("Attachment metadata pagination offset, default 0. At most 200 per message.", 0, 199),
         }, ["message_id"], adapter.list_attachments),
-        (client + "_get_attachment", "Export ONE selected original file to a private local path for host file tools. Up to 10 MiB; no document parsing, image pixels or execution. Use metadata search and list first; release export_id after use.", {
+        (client + "_get_attachment", "Export ONE selected original to a private local path for host file tools. Default 10 MiB; caller may allow up to 100 MiB. No document parsing, image pixels or execution. Release export_id after use.", {
             "message_id": message_id_schema,
             "attachment_id": string("Opaque attachment ID from this message's attachment list; never a filename/path.", 66),
+            "max_bytes": integer("Original-file byte limit, default 10485760 (10 MiB). Raise only for a needed larger file; host tools have separate limits.", 1, attachments.HARD_MAX_BYTES),
         }, ["message_id", "attachment_id"], adapter.get_attachment),
     ])
+    if client == "thunderbird":
+        cache_options = {
+            "cache_scan_bytes": integer("Mbox fallback window bytes, default 67108864 (64 MiB); raise only when needed.", 65536, 256 * 1024 * 1024),
+            "cache_scan_offset": integer("Bytes skipped backward from mbox end, default 0. Use error.details.next_cache_scan_offset for older windows; keep these options for get.", 0, 2**53 - 1),
+            "maildir_scan_limit": integer("Maildir entries inspected for identity, default 2000. Raise for a larger folder; scan timeout remains bounded.", 1, 100000),
+            "maildir_scan_offset": integer("Maildir entries skipped, default 0. Use error.details.next_maildir_scan_offset and keep successful options for get. Cache changes can shift windows.", 0, 2**31 - 1),
+        }
+        for definition in DEFINITIONS[-2:]:
+            definition[2].update(cache_options)
 for _, _, properties, required, function in DEFINITIONS:
     for key, parameter in inspect.signature(function).parameters.items():
         if key in properties and key not in required and parameter.default is not inspect.Parameter.empty and parameter.default is not None:

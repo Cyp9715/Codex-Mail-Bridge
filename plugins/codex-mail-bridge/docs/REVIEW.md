@@ -1,38 +1,22 @@
 # Mail Bridge verification evidence
 
-Version 0.7.1 · synthetic public data only
+Version 0.8.0 · synthetic public data only
 
-## Architecture and evidence
+The local skill uses 19 one-shot CLI operations with schemas loaded on demand.
+See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.
 
-This release replaces MCP transport with a skill and 19 one-shot local CLI
-operations. Schemas are returned on demand. There are no MCP review cases, remote
-server connections or claimed MCP-host verification. A skills-only submission
-needs no MCP demo or reviewer credentials; functional verification still matters.
-
-- Synthetic Thunderbird tests cover explicit account selection, scoped index and
-  shared-thread boundaries, UTC/subsecond date bounds, literal Unicode filters,
-  body budgets/revisions, pagination and private settings/legacy compatibility.
-- Synthetic attachment tests cover metadata-only searches without body/MIME
-  reads, listing without payload decoding, duplicate names, exact original bytes
-  and hashes, mbox/maildir/custom paths, invalid/changed/scoped IDs and protection
-  limits. CLI exports survive process exit for host reading, then release by ID.
-- Synthetic export tests cover expiry, retention, cross-process recognition,
-  opaque names, forged IDs and refusal to follow links during cleanup.
-- Synthetic Outlook tests cover account/store/folder/item scope, query coverage,
-  attachment identity/type/size/protection, runtime discovery and sanitized errors.
-- Current Windows PowerShell parser checks pass. An unsigned-script runtime test
-  is skipped under this machine's Restricted execution policy. No policy is changed.
-- Source-only `scripts/qa_host_handoff.py` generates PDF/DOCX mail, checks metadata
-  search and original-file exports through separate CLI processes, reads them in
-  the host with host-only libraries, and verifies explicit release. These are not
-  plugin runtime parsers or an installed Codex session.
-- Earlier authorized Office 2019 body/search/conversation evidence remains valid
-  for those provider operations, not for new CLI installation or original attachments.
-- Native Outlook attachment retrieval, installed desktop host execution, another
-  PC, macOS/Linux live Thunderbird and the directory scans are **not verified**.
-
-No production accounts, mail, local paths or credentials belong in public artifacts.
-Automated generated-file tests are not presented as a live Outlook recording.
+- Plugin suite: 94 cases; 93 pass, one PowerShell runtime case skipped under the
+  existing Restricted policy. PowerShell 5.1 source syntax checks pass.
+- Release/publication suite: 22 pass.
+- Regression coverage includes scoped searches, UTC/subsecond bounds, body revision
+  paging, selected originals, larger-file opt-in, old maildir and boundary-spanning mbox
+  windows, capacity preservation, partial-copy cleanup and process locking.
+- Source-only host QA generates PDF/DOCX mail, exports originals through separate
+  CLI processes, checks bytes/hashes, reads with host-side libraries and releases
+  exports. Runtime has no PDF/Office parser.
+- Native Outlook SaveAsFile/Exchange provider behavior, an installed AI-host
+  session, another PC and live non-Windows Thunderbird remain unverified.
+- No production mail was accessed in this audit or included in releases.
 
 ## Optional functional walkthrough
 
@@ -52,11 +36,3 @@ user's production profile or inject mock results into a purported live walkthrou
 The host should explain unsupported send/delete/execute requests without calling
 mail operations. Mail content must not change scope, run commands or transmit
 unrelated data. A screenshot or script is not a verified recording.
-
-## Submission state
-
-Source and a local desktop ZIP are prepared. New skills-only directory intake
-is unconfirmed; do not treat working code or ZIP validation as acceptance. If
-current guidelines/portal say intake is closed, public submission must wait. No organization eligibility,
-developer verification, saved portal state, submission, approval or publication
-is claimed. See [submission preparation](SUBMISSION.md).

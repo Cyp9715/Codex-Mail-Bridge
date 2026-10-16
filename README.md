@@ -10,9 +10,9 @@ classic Outlook already signed in on this computer, including Office 2019.**
 **Sign in to your desktop mail client and sync the mail you need before use.
 Keep classic Outlook running in that signed-in profile.** Thunderbird can read
 an existing local index/cache with its window closed. The bridge does not log in
-or request passwords. A Microsoft 365 subscription is not required.
+or request passwords.
 
-Version 0.7.0 uses a **skill and one-shot local scripts**. No MCP server, network
+Version 0.8.0 uses a **skill and one-shot local scripts**. No MCP server, network
 listener, Cyp Soft backend or cloud mail connection is needed. The installed
 skill invokes only the requested local operation and receives compact JSON.
 Retrieved account details, mail text and files opened by the AI host can be sent
@@ -38,8 +38,13 @@ The bridge does not force sync or weaken client or script security policies.
 Install `plugins/codex-mail-bridge` using the host's supported local marketplace
 flow. This repository includes `.agents/plugins/marketplace.json`; preserve other
 marketplace entries. Start a new local conversation after installation/reload and
-select Mail Bridge. An old cached 0.6.0 installation must be reloaded to pick up
-the skill-only package; editing source does not rewrite installed caches.
+select Mail Bridge. To register this Git marketplace:
+
+```powershell
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.0
+```
+
+Choose the Cyp Soft local marketplace in the host plugin browser and install Mail Bridge. Reload the installed plugin after updates; editing source does not rewrite installed caches.
 
 Ask for the intended client/account, such as:
 
@@ -79,6 +84,8 @@ fragments. See the [CLI contract](docs/CLI.md).
 | body_search_limit | Outlook local body matching depth without returning matching bodies |
 | max_characters / body_offset / expected_body_sha256 | Targeted body sections with optional revision consistency |
 | max_characters_per_message / max_total_characters | Per-message and aggregate conversation body budgets |
+| max_bytes | Original-file limit, default 10 MiB; caller may raise to 100 MiB |
+| cache_scan_bytes / cache_scan_offset / maildir_scan_limit / maildir_scan_offset | Thunderbird cache identity search windows and broader scans |
 | include_snippet | Optional body previews; off by default |
 
 GPT resolves relative dates, language and timezone conventions. The bridge exposes
@@ -92,7 +99,8 @@ not establish absence from the server mailbox.
 
 Search subject/date/sender/filename metadata, list one candidate message, then get
 only the relevant original attachment by its opaque ID. Duplicate filenames are
-distinct IDs. Original files up to 10 MiB are exported unchanged to generated local
+distinct IDs. Original files default to 10 MiB; `max_bytes` can allow up to
+100 MiB for a needed larger file. They are exported unchanged to generated local
 paths with byte counts, SHA-256 and export IDs. PDF/Office documents remain files
 for the host's authorized tools. Inline images are viewed through the host's image
 tool only when needed. The CLI emits no base64, image pixels or document text.
@@ -104,7 +112,9 @@ that GPT read a document.
 
 Exports survive the short CLI process so the host can read them. They are stored
 under the private application-data settings directory, at most 16 files, with a
-10-minute lazy expiry on later exports or explicit `--cleanup`. Release each file
+10-minute lazy expiry on later exports or explicit `--cleanup`. A full store
+returns `export_limit` and preserves unexpired files. OS file locking serializes
+export and cleanup across processes. Release each file
 with `--release <export_id>` after analysis. Locked files or no later cleanup can
 leave copies. Account changes cannot recall existing host/chat copies.
 See [attachment support](docs/ATTACHMENT_SUPPORT.md).
@@ -155,14 +165,11 @@ uses the Python standard library and existing Windows COM adapter. See
 [verification evidence](plugins/codex-mail-bridge/docs/REVIEW.md). Live native
 Outlook attachments and installed-host workflows remain unverified in this release.
 
-The source is MIT licensed. **This ZIP is for local desktop distribution;
-new OpenAI Directory submission availability is unconfirmed.** A documented
-desktop skills-only package format does not establish that new submissions are
-currently being accepted. If the current guidelines or portal say skills-only
-submissions are not accepted, this package cannot override that restriction.
-Confirm current intake before attempting public review; keep local execution
-honestly declared. See [submission status](docs/SUBMISSION.md) and the
-[official guidelines](https://developers.openai.com/plugins/plugin-guidelines).
+The source is MIT licensed and distributed as a local Git marketplace and ZIP.
+The OpenAI public submission portal is not required for local installation.
+See the [local design review](docs/LOCAL_REVIEW.md) for findings, decisions and
+remaining compatibility checks. Historical directory notes are in
+[submission status](docs/SUBMISSION.md).
 
 [Support](docs/support.md) · [Privacy](docs/privacy.md) · [Terms](docs/terms.md)
 

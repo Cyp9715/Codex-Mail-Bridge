@@ -39,14 +39,30 @@ $property | Add-Member ScriptMethod GetProperty {
     throw 'Missing synthetic property'
 }
 $script:attachment = [pscustomobject]@{ FileName = 'example.bin'; Size = 4; Type = 1; PropertyAccessor = $property }
+$script:attachment | Add-Member ScriptMethod SaveAsFile {
+    param($Path)
+    $script:byteReads++
+    [IO.File]::WriteAllBytes($Path, [byte[]]@(0, 1, 254, 255))
+}
 $collection = New-Object psobject -Property @{ Count = 2 }
 $collection | Add-Member ScriptMethod Item { param($Index) return $script:attachment }
 $item = [pscustomobject]@{ EntryID = 'A' * 32; Permission = 0; MessageClass = 'IPM.Note'; LastModificationTime = [datetime]'2026-10-15T12:00:00'; Attachments = $collection }
 $listing = Get-ItemAttachments $item 'selected-fingerprint'
 if ($script:byteReads -ne 0 -or $listing.returned -ne 2) { throw 'Metadata listing accessed original files' }
 if ($listing.attachments[0].id -eq $listing.attachments[1].id) { throw 'Duplicate filename IDs collided' }
-$original = Get-ItemAttachments $item 'selected-fingerprint' $listing.attachments[1].id
-if ($original.data_base64 -ne 'AAH+/w==' -or $script:byteReads -ne 1) { throw 'Original bytes changed or multiple attachments read' }
+$exportRoot = Join-Path ([IO.Path]::GetTempPath()) ('mail-bridge-synthetic-' + [guid]::NewGuid().ToString('N'))
+$exportDirectory = Join-Path $exportRoot ('e_' + [guid]::NewGuid().ToString('N'))
+[void][IO.Directory]::CreateDirectory($exportDirectory)
+$exportPath = Join-Path $exportDirectory 'attachment.bin'
+try {
+    $original = Get-ItemAttachments $item 'selected-fingerprint' $listing.attachments[1].id $exportPath
+    if (-not $original.exported -or [Convert]::ToBase64String([IO.File]::ReadAllBytes($exportPath)) -ne 'AAH+/w==' -or $script:byteReads -ne 1) { throw 'Original bytes changed or multiple attachments read' }
+    Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' $listing.attachments[1].id $exportPath } 'invalid_export_path'
+} finally {
+    [IO.File]::Delete($exportPath)
+    [IO.Directory]::Delete($exportDirectory)
+    [IO.Directory]::Delete($exportRoot)
+}
 Assert-Blocked { Get-ItemAttachments $item 'different-fingerprint' $listing.attachments[0].id } 'attachment_changed'
 $item.Permission = 1
 Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' } 'protected_message'
@@ -66,6 +82,8 @@ Assert-Blocked { Get-ItemAttachments $item 'selected-fingerprint' $listing.attac
 # Restrict the requested date range before applying the newest-candidate limit.
 $filter = New-CandidateFilter '2026-10-01T00:00:00+00:00' '2026-11-01T00:00:00+00:00'
 if ($filter -notmatch '0x0E060040.*>=' -or $filter -notmatch '0x0E060040.*<') { throw 'Missing UTC table date bounds' }
+$attachmentsFilter = New-CandidateFilter '' '' $true
+if ($attachmentsFilter -notmatch '0x0E1B000B.*= 1' -or $filter -match '0x0E1B000B') { throw 'Attachment metadata filter did not precede candidate limits' }
 $precise = New-CandidateFilter '2026-10-01T10:30:15+00:00' '2026-10-01T10:30:45+00:00'
 $broadEnd = ([datetime]'2026-10-01T10:31:00').ToString('g', [Globalization.CultureInfo]::CurrentCulture).Replace("'", "''")
 if (-not $precise.Contains($broadEnd)) { throw 'Provider date filter rounded exclusive end inward' }
@@ -97,4 +115,20 @@ $finished = Get-ScanProgress $candidates.Count 1 $last.Count
 if (($last -join ',') -ne 'middle,oldest' -or $finished.scan_incomplete -or $null -ne $finished.next_scan_offset) { throw 'Older candidate window did not complete' }
 $partial = Get-ScanProgress 10 2 3
 if ($partial.next_scan_offset -ne 5) { throw 'Timed scan continuation skipped unexamined candidates' }
+
+# Compact subject/newest queries must not enumerate collections or read the body.
+$forbidden = New-Object psobject -Property @{ Count = 1 }
+$forbidden | Add-Member ScriptMethod Item { throw 'Unrequested metadata collection access' }
+$compact = [pscustomobject]@{ EntryID = 'A' * 32; ConversationID = 'demo'; ReceivedTime = [datetime]'2026-10-15T12:00:00'
+    Subject = 'Synthetic'; SenderName = 'Alex'; SenderEmailAddress = 'alex@example.test'; SenderEmailType = 'SMTP'
+    To = 'Demo'; CC = ''; Parent = [pscustomobject]@{ EntryID = 'inbox-a'; Name = 'Inbox' }
+    Recipients = $forbidden; Attachments = $forbidden }
+$compact | Add-Member ScriptProperty Body { throw 'Unrequested body access' }
+$summary = Get-Message $compact $false 6000 0 $false $false
+if ($summary.recipient_addresses_included -or $summary.attachment_names_included -or -not $summary.has_attachments) { throw 'Compact metadata disclosure is incorrect' }
+
+$exchangeProperty = New-Object psobject
+$exchangeProperty | Add-Member ScriptMethod GetProperty { param($Tag) return 'alex@example.test' }
+$exchange = [pscustomobject]@{ Type = 'EX'; Address = '/o=synthetic/ou=example'; PropertyAccessor = $exchangeProperty }
+if ((Get-SmtpAddress $exchange 'fallback') -cne 'alex@example.test') { throw 'Exchange SMTP resolution failed' }
 Write-Output 'Outlook scope tests passed'

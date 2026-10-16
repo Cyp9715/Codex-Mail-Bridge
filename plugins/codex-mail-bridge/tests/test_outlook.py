@@ -1,6 +1,5 @@
 """Synthetic adapter tests; these do not claim another PC or Outlook edition passed."""
 import copy
-import base64
 import json
 import os
 from pathlib import Path
@@ -57,7 +56,8 @@ class OutlookTests(unittest.TestCase):
             meta = {"id": "a_" + "c" * 64, "name": "agenda.pdf", "content_type": "application/pdf", "bytes": 12, "transferable": True}
             if operation == "attachments":
                 return {"account": ACCOUNT["address"], "attachments": [meta], "returned": 1}
-            return {"account": ACCOUNT["address"], "attachment": meta, "data_base64": base64.b64encode(b'%PDF-sample\x00\xff').decode()}
+            Path(arguments["export_path"]).write_bytes(b'%PDF-sample\x00\xff')
+            return {"account": ACCOUNT["address"], "attachment": meta, "exported": True}
         return {"configured": True, "account": ACCOUNT["address"]}
 
     def select(self):
@@ -271,8 +271,36 @@ class OutlookTests(unittest.TestCase):
             with self.assertRaises(BridgeError): outlook.get_attachment(mid, token)
         with patch.object(outlook, "selection", side_effect=[{"account_id": "one", "fingerprint": "one"}, {"account_id": "two", "fingerprint": "two"}]), patch.object(outlook, "backend", return_value={}):
             with self.assertRaisesRegex(BridgeError, "changed"): outlook.list_attachments("A" * 32)
-        with patch.object(outlook, "attachment_request", return_value={"data_base64": "%%%invalid"}):
-            with self.assertRaises(BridgeError): outlook.source_attachment("A" * 32, "a_" + "c" * 64)
+
+    def test_subject_search_avoids_recipient_and_attachment_enumeration(self):
+        self.select()
+        outlook.search(query="Aurora", field="subject")
+        self.assertFalse(self.calls[-1][1]["include_recipient_details"])
+        self.assertFalse(self.calls[-1][1]["include_attachment_names"])
+        outlook.search(recipient="alex")
+        self.assertTrue(self.calls[-1][1]["include_recipient_details"])
+        self.assertFalse(self.calls[-1][1]["include_attachment_names"])
+        outlook.search_attachments(filename="agenda")
+        self.assertTrue(self.calls[-1][1]["include_attachment_names"])
+
+    def test_failed_provider_export_removes_partial_copy(self):
+        import attachments
+        self.select()
+        def fail(operation, **arguments):
+            Path(arguments["export_path"]).write_bytes(b"partial")
+            raise BridgeError("Synthetic provider failure")
+        with patch.object(outlook, "backend", side_effect=fail):
+            with self.assertRaises(BridgeError):
+                outlook.get_attachment("A" * 32, "a_" + "c" * 64)
+        self.assertEqual(attachments.managed_exports(), [])
+
+    def test_provider_file_limit_is_checked_after_save(self):
+        import attachments
+        self.select()
+        with self.assertRaises(BridgeError):
+            outlook.get_attachment("A" * 32, "a_" + "c" * 64, max_bytes=4)
+        self.assertEqual(self.calls[-1][1]["max_bytes"], 4)
+        self.assertEqual(attachments.managed_exports(), [])
 
 
 class RuntimeTests(unittest.TestCase):

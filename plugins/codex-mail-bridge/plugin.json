@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-mail-bridge",
-  "version": "0.7.1",
-  "description": "Let GPT find and reference mail and selected original attachments from Thunderbird or classic Outlook already signed in on this computer. Desktop-only skill with local scripts.",
+  "version": "0.8.0",
+  "description": "Find and reference locally signed-in Thunderbird or classic Outlook mail, including Office 2019. Retrieve relevant messages and original files for GPT through a local skill and CLI.",
   "author": {
     "name": "Cyp Soft"
   },
@@ -24,7 +24,7 @@
       "interface": {
         "displayName": "Mail Bridge",
         "shortDescription": "Read Thunderbird & Outlook",
-        "longDescription": "Mail Bridge lets GPT find and reference email from Thunderbird or classic Outlook already signed in on this computer, including Outlook in Office 2019. Sign in to your desktop mail client and sync the mail you need before use. Keep classic Outlook running in that signed-in profile.\n\nThis Desktop only plugin uses a packaged skill and local scripts. It needs a local desktop conversation with permission to run commands and read files. Python 3.10+ is required; the optional launcher uses Node.js. Outlook requires Windows and Windows PowerShell 5.1. It starts no MCP server and requires no Cyp Soft remote server.\n\nChoose one account explicitly. GPT can search by date/time, subject, sender, recipient or folder, read relevant body sections and conversations, and retrieve only selected original attachments or inline images. Small metadata pages are the default; broader searches and multiple relevant files are available when requested. PDF and Office attachments remain original files for the host's file tools; the plugin does not parse or execute them.\n\nReturned account details, mail text and files opened by the AI host can be sent to OpenAI for the requested task. Local access does not make GPT processing offline. There is no Cyp Soft backend, telemetry or mail archive. Generated attachment copies are kept in private local export storage for use after each command, with a 10-minute lazy expiry, a 16-file limit and explicit release after use. Files can remain if no cleanup runs or a file is locked.\n\nMailbox access is read-only: no sending, draft saving, deletion, moving, read-state changes, forced sync or security-policy changes. Local mail indexes and caches may be incomplete or stale. New Outlook, web Outlook and Outlook for Mac are unsupported. Protected, linked and embedded-message attachments have limits. Native Outlook attachment and installed-host workflows still need live validation. Independent Cyp Soft project; not affiliated with Mozilla, Microsoft or OpenAI.",
+        "longDescription": "Mail Bridge lets GPT find and reference email from Thunderbird or classic Outlook already signed in on this computer, including Office 2019. Sign in and sync needed mail before use; keep classic Outlook running in that profile.\n\nThis local desktop plugin uses a skill and one-shot CLI commands. Python 3.10+ and host command/file access are required; the optional launcher uses Node.js. Outlook needs Windows PowerShell 5.1 under its existing policy. No remote service, MCP server, login credentials or API key is required by the bridge.\n\nChoose one account explicitly. Search by date/time, subject, body, sender, recipient or folder. Small metadata pages are the default; GPT can continue broader searches, read body sections and conversations, and retrieve selected original attachments or inline images. GPT and the host's file tools interpret documents; the bridge does no PDF/Office parsing, OCR or attachment execution.\n\nOriginals default to 10 MiB each; callers can allow up to 100 MiB when needed. Up to 16 files remain in private local export storage. Unexpired files are preserved when full. Release finished files explicitly; later exports or cleanup remove copies older than 10 minutes. No background cleanup runs.\n\nMailbox access is read-only: no sending, saving drafts, deleting, moving, marking read, forced sync or policy changes. Local indexes/caches may be stale or incomplete. New/web/Mac Outlook, shared delivery stores and extra archive stores are unsupported. Live Outlook provider attachment export and installed-host integration remain unverified.\n\nRetrieved account details, mail and files opened by the AI host can reach OpenAI for the requested task. Local execution does not make GPT offline. There is no Cyp Soft backend, telemetry or mail archive. Independent Cyp Soft project; not affiliated with Mozilla, Microsoft or OpenAI.",
         "developerName": "Cyp Soft",
         "category": "Productivity",
         "capabilities": [
@@ -41,20 +41,6 @@
         "supportURL": "https://github.com/Cyp9715/Codex-Mail-Bridge/blob/main/docs/support.md",
         "privacyPolicyURL": "https://github.com/Cyp9715/Codex-Mail-Bridge/blob/main/docs/privacy.md",
         "termsOfServiceURL": "https://github.com/Cyp9715/Codex-Mail-Bridge/blob/main/docs/terms.md"
-      },
-      "review": {
-        "commerce": false,
-        "commerce_description": "Free distribution. No payments, purchases, paid upgrades, or commerce tools."
-      },
-      "publication": {
-        "release_notes": "0.7.1 clarifies the local signed-in mail purpose, removes irrelevant subscription wording from About, and corrects distribution guidance: package validity does not establish acceptance of new skills-only directory submissions. Mail runtime behavior is unchanged.",
-        "countries": [],
-        "translations": {
-          "ko-KR": {
-            "subtitle": "Thunderbird·Outlook 메일 조회",
-            "description": "이 컴퓨터에 로그인된 Thunderbird 또는 클래식 Outlook(Office 2019 포함)의 메일을 GPT가 찾아보고 참조하도록 돕는 데스크톱 전용 플러그인입니다. 먼저 메일 클라이언트에서 로그인하고 필요한 메일을 동기화하세요. 클래식 Outlook은 실행 중이어야 합니다.\n\nMCP 서버나 별도의 원격 서버 없이 스킬과 로컬 스크립트로 동작합니다. 명령 실행과 파일 읽기가 허용된 로컬 대화 및 Python 3.10+가 필요합니다. Outlook은 Windows와 Windows PowerShell 5.1이 필요합니다.\n\n사용자가 선택한 계정에서 기간·제목·발신자·수신자·폴더로 검색하고 필요한 본문, 대화, 원본 첨부파일과 메일 속 이미지를 참조합니다. 기본은 작은 메타데이터 응답이며 요청에 따라 넓게 조회할 수 있습니다. 첨부파일 내용을 플러그인이 해석하거나 실행하지 않고, 선택한 원본을 호스트의 파일 도구에 전달합니다.\n\n조회한 계정 정보·메일 본문과 호스트에서 연 파일은 요청 처리를 위해 OpenAI에 전달될 수 있습니다. 로컬 실행이 GPT의 오프라인 처리를 뜻하지 않습니다. Cyp Soft의 원격 서버·추적·메일 보관 서버는 없습니다. 임시 원본은 비공개 로컬 경로에 보관하며 사용 후 정리합니다. 10분 경과 후 다음 정리 시 삭제되고 최대 16개로 제한됩니다.\n\n메일 발송·초안 저장·삭제·이동·읽음 변경·강제 동기화·보안 설정 변경은 하지 않습니다. 로컬 색인과 캐시는 불완전할 수 있으며 새 Outlook·웹 Outlook·Mac용 Outlook은 지원하지 않습니다. 실제 Outlook 첨부파일 및 설치된 호스트에서의 통합 검증은 남아 있습니다. Mozilla·Microsoft·OpenAI와 제휴하지 않은 Cyp Soft의 독립 프로젝트입니다."
-          }
-        }
       }
     }
   },

@@ -15,16 +15,19 @@ from urllib.parse import unquote, urlsplit
 
 
 class BridgeError(Exception):
-    def __init__(self, message, *, code="mail_access_failed", retryable=False, next_action=None):
+    def __init__(self, message, *, code="mail_access_failed", retryable=False, next_action=None, details=None):
         super().__init__(message)
         self.code = code
         self.retryable = retryable
         self.next_action = next_action
+        self.details = details
 
     def as_dict(self):
         value = {"error": str(self), "code": self.code, "retryable": self.retryable}
         if self.next_action:
             value["next_action"] = self.next_action
+        if self.details is not None:
+            value["details"] = self.details
         return value
 
 

@@ -151,7 +151,9 @@ class ThunderbirdAttachmentTests(unittest.TestCase):
         raw, _ = mime([b'x' * (attachments.MAX_BYTES + 1), png(), b'duplicate'])
         self.folder.write_bytes(b'From - date\n' + raw)
         entry = self.listing()[0]
-        with self.assertRaisesRegex(accounts.BridgeError, '10 MiB'): tb.get_attachment(101, entry['id'])
+        with self.assertRaisesRegex(accounts.BridgeError, 'byte limit'): tb.get_attachment(101, entry['id'])
+        larger = tb.get_attachment(101, entry['id'], max_bytes=attachments.MAX_BYTES + 1)
+        self.assertEqual(larger.metadata['bytes'], attachments.MAX_BYTES + 1)
         self.folder.write_bytes(b'From - date\n' + self.raw.replace(base64.b64encode(self.originals[2]), b'%%%%INVALID'))
         entry = self.listing()[2]
         with self.assertRaises(accounts.BridgeError): tb.get_attachment(101, entry['id'])
@@ -175,6 +177,48 @@ class ThunderbirdAttachmentTests(unittest.TestCase):
             db.execute('UPDATE messages SET messageKey=17 WHERE id=101')
             db.commit()
         self.assertEqual(len(self.listing()), 3)
+
+    def test_old_mbox_windows_continue_and_keep_crossing_message_complete(self):
+        old = b'From - date\nMessage-ID: <old@example.test>\n\n' + b'x' * 70000 + b'\n'
+        latest = b'From - date\nMessage-ID: <latest@example.test>\n\nrecent\n'
+        self.folder.write_bytes(old + latest)
+        with self.assertRaises(accounts.BridgeError) as caught:
+            tb.mbox_message(self.folder, 'old@example.test', None, cache_scan_bytes=65536)
+        self.assertEqual(caught.exception.code, 'cache_search_incomplete')
+        offset = caught.exception.details['next_cache_scan_offset']
+        raw = tb.mbox_message(self.folder, 'old@example.test', None, cache_scan_bytes=65536, cache_scan_offset=offset)
+        self.assertEqual(raw, old.split(b'\n', 1)[1])
+        self.assertEqual(tb.mbox_message(self.folder, 'old@example.test', 0), raw)
+
+    def test_cache_limits_are_available_only_on_thunderbird_attachment_operations(self):
+        schema = next(op for op in bridge.OPERATIONS if op['name'] == 'thunderbird_get_attachment')['inputSchema']
+        self.assertIn('cache_scan_offset', schema['properties'])
+        self.assertIn('max_bytes', schema['properties'])
+        result = bridge.call_operation('thunderbird_get_attachment', {'message_id': 101, 'attachment_id': 'a_' + '0'*64, 'cache_scan_bytes': True})
+        self.assertEqual(result['error']['code'], 'invalid_arguments')
+
+    def test_maildir_cache_continues_without_reading_skipped_file_contents(self):
+        folder = Path(self.temp.name)/'maildir'
+        (folder/'cur').mkdir(parents=True)
+        (folder/'cur'/'first').write_bytes(b'Message-ID: <first@example.test>\n\nfirst')
+        (folder/'cur'/'second').write_bytes(b'Message-ID: <second@example.test>\n\nsecond')
+        # The cache enumerator owns ordering; the test supplies a stable one.
+        original = Path.iterdir
+        def ordered(path):
+            return iter(sorted(original(path)))
+        with patch.object(Path, 'iterdir', ordered):
+            with self.assertRaises(accounts.BridgeError) as error:
+                tb.maildir_message(folder,'second@example.test',maildir_scan_limit=1)
+            offset=error.exception.details['next_maildir_scan_offset']
+            self.assertEqual(offset,1)
+            original_open=Path.open
+            def reject_skipped(path,*args,**kwargs):
+                if path.name == 'first':
+                    raise AssertionError('Skipped cache content was opened')
+                return original_open(path,*args,**kwargs)
+            with patch.object(Path,'open',reject_skipped):
+                raw=tb.maildir_message(folder,'second@example.test',maildir_scan_limit=1,maildir_scan_offset=offset)
+        self.assertEqual(raw,b'Message-ID: <second@example.test>\n\nsecond')
 
     def test_cli_search_list_get_survives_exit_and_explicit_release(self):
         launcher = Path(__file__).resolve().parents[1] / 'scripts/mail_bridge.cjs'
@@ -217,9 +261,12 @@ class ExportTests(unittest.TestCase):
         self.assertFalse(path.exists())
         paths = []
         with patch.object(attachments, 'EXPORT_LIMIT', 2):
-            for _ in range(3):
+            for _ in range(2):
                 paths.append(Path(attachments.transfer(b'x', {'name': 'x.dat'}).metadata['local_path']))
-            self.assertFalse(paths[0].exists())
+            with self.assertRaises(accounts.BridgeError) as error:
+                attachments.transfer(b'x', {'name': 'x.dat'})
+            self.assertEqual(error.exception.code, 'export_limit')
+            self.assertTrue(all(path.exists() for path in paths))
             self.assertEqual(len(attachments.managed_exports()), 2)
 
     def test_fake_image_is_delivered_as_an_opaque_file(self):
@@ -252,6 +299,16 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(process.returncode, 0, process.stderr)
         self.assertEqual(json.loads(process.stdout)['remaining'], 1)
         self.assertTrue(Path(value.metadata['local_path']).exists())
+
+    def test_concurrent_process_cannot_clean_or_allocate_during_export(self):
+        self.root.mkdir()
+        program = "import attachments\nfrom accounts import BridgeError\ntry: attachments.expire_exports()\nexcept BridgeError as error: print(error.code)"
+        with attachments.export_lock(self.root):
+            process = subprocess.run([sys.executable, '-c', program], capture_output=True, text=True,
+                env={**os.environ, 'PYTHONPATH': str(Path(attachments.__file__).parent)}, timeout=10)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), 'export_busy')
+        self.assertEqual(attachments.expire_exports()['remaining'], 0)
 
 
 if __name__ == '__main__': unittest.main()

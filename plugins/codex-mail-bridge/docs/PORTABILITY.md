@@ -23,7 +23,10 @@ No real accounts, addresses, folder paths, store/message IDs, or mail bodies are
 included in the distributable. Public screenshots/recordings must use isolated
 synthetic data. Report compatibility issues with redacted diagnostics only.
 
-Version 0.7.0 retains metadata-first original-file access through a skill and local
+Version 0.8.0 retains metadata-first original-file access through a skill and local
 CLI, with no MCP transport. Generated-file/CLI and synthetic COM tests cover the
 adapters; native Outlook attachment and installed-host flows remain unverified.
 See [attachment support](ATTACHMENT_SUPPORT.md) and [CLI contract](CLI.md).
+
+See [the current local review](LOCAL_REVIEW.md) for SMTP resolution, direct
+original-file export, cache continuation and verification limits.

@@ -62,8 +62,9 @@ function Get-ScopedFolders($Store) {
     return $result
 }
 
-function New-CandidateFilter([string]$After = '', [string]$Before = '') {
+function New-CandidateFilter([string]$After = '', [string]$Before = '', [bool]$AttachmentsOnly = $false) {
     $clauses = @('"http://schemas.microsoft.com/mapi/proptag/0x001A001F" LIKE ''IPM.Note%''')
+    if ($AttachmentsOnly) { $clauses += '"http://schemas.microsoft.com/mapi/proptag/0x0E1B000B" = 1' }
     foreach ($pair in @(@($After, '>='), @($Before, '<'))) {
         if (-not $pair[0]) { continue }
         $utc = [DateTimeOffset]::Parse($pair[0], [Globalization.CultureInfo]::InvariantCulture).UtcDateTime
@@ -78,9 +79,9 @@ function New-CandidateFilter([string]$After = '', [string]$Before = '') {
     return '@SQL=' + ($clauses -join ' AND ')
 }
 
-function Get-Candidates($Folders, [int]$Limit, [string]$FolderId, [string]$After = '', [string]$Before = '') {
+function Get-Candidates($Folders, [int]$Limit, [string]$FolderId, [string]$After = '', [string]$Before = '', [bool]$AttachmentsOnly = $false) {
     $candidates = @{}
-    $filter = New-CandidateFilter $After $Before
+    $filter = New-CandidateFilter $After $Before $AttachmentsOnly
     $startUtc = if ($After) { [DateTimeOffset]::Parse($After, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime } else { $null }
     $endUtc = if ($Before) { [DateTimeOffset]::Parse($Before, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime } else { $null }
     $watch = [Diagnostics.Stopwatch]::StartNew()
@@ -146,20 +147,45 @@ function Get-ScanWindow($Candidates, [int]$Offset, [int]$Limit) {
     return @($Candidates | Select-Object -Skip $Offset -First $Limit)
 }
 
-function Get-Message($Item, [bool]$IncludeBody, [int]$BodyLimit, [int]$BodyOffset = 0) {
+function Get-SmtpAddress($Entry, [string]$Fallback) {
+    if ($null -eq $Entry) { return $Fallback }
+    if ([string]$Entry.Type -ne 'EX') { return [string]$Entry.Address }
+    try {
+        $smtp = [string]$Entry.PropertyAccessor.GetProperty('http://schemas.microsoft.com/mapi/proptag/0x39FE001E')
+        if ($smtp) { return $smtp }
+    } catch { }
+    try { $smtp = [string]$Entry.GetExchangeUser().PrimarySmtpAddress; if ($smtp) { return $smtp } } catch { }
+    try { $smtp = [string]$Entry.GetExchangeDistributionList().PrimarySmtpAddress; if ($smtp) { return $smtp } } catch { }
+    return $Fallback
+}
+
+function Get-Message($Item, [bool]$IncludeBody, [int]$BodyLimit, [int]$BodyOffset = 0,
+                     [bool]$IncludeRecipientDetails = $true, [bool]$IncludeAttachmentNames = $true) {
     $recipients = @()
-    for ($n = 1; $n -le [Math]::Min(200, $Item.Recipients.Count); $n++) {
-        $recipient = $Item.Recipients.Item($n)
-        $recipients += ([string]$recipient.Name + ' <' + [string]$recipient.Address + '>')
+    if ($IncludeRecipientDetails) {
+        for ($n = 1; $n -le [Math]::Min(200, $Item.Recipients.Count); $n++) {
+            $recipient = $Item.Recipients.Item($n)
+            $address = Get-SmtpAddress $recipient.AddressEntry ([string]$recipient.Address)
+            $recipients += ([string]$recipient.Name + ' <' + $address + '>')
+        }
+    } else {
+        $recipients = @([string]$Item.To, [string]$Item.CC) | Where-Object { $_ }
     }
     $attachments = @()
-    for ($n = 1; $n -le [Math]::Min(200, $Item.Attachments.Count); $n++) { $attachments += [string]$Item.Attachments.Item($n).FileName }
+    if ($IncludeAttachmentNames) {
+        for ($n = 1; $n -le [Math]::Min(200, $Item.Attachments.Count); $n++) { $attachments += [string]$Item.Attachments.Item($n).FileName }
+    }
+    $senderAddress = [string]$Item.SenderEmailAddress
+    if ([string]$Item.SenderEmailType -eq 'EX') { $senderAddress = Get-SmtpAddress $Item.Sender $senderAddress }
     $message = [ordered]@{ id = [string]$Item.EntryID; conversation_id = [string]$Item.ConversationID
         date = $Item.ReceivedTime.ToUniversalTime().ToString('o'); subject = [string]$Item.Subject
-        sender = ([string]$Item.SenderName + ' <' + [string]$Item.SenderEmailAddress + '>')
+        sender = ([string]$Item.SenderName + ' <' + $senderAddress + '>')
         recipients = $recipients -join '; '; folder_id = [string]$Item.Parent.EntryID
         folder_name = [string]$Item.Parent.Name; attachment_names = $attachments
-        recipients_truncated = ($Item.Recipients.Count -gt 200); attachments_truncated = ($Item.Attachments.Count -gt 200) }
+        recipient_addresses_included = $IncludeRecipientDetails; attachment_names_included = $IncludeAttachmentNames
+        has_attachments = ($Item.Attachments.Count -gt 0)
+        recipients_truncated = ($IncludeRecipientDetails -and $Item.Recipients.Count -gt 200)
+        attachments_truncated = ($IncludeAttachmentNames -and $Item.Attachments.Count -gt 200) }
     if ($IncludeBody) {
         $section = Get-BodySection ([string]$Item.Body) $BodyLimit $BodyOffset
         foreach ($key in $section.Keys) { $message[$key] = $section[$key] }
@@ -190,10 +216,20 @@ function Get-AttachmentMetadata($Item, $Attachment, [int]$Index, [string]$Finger
     $identity = @($Fingerprint, [string]$Item.EntryID, $Index, $name, $size, $kind, $cid, $modified) -join "`n"
     return @{ id = 'a_' + (Get-Digest $identity); name = $name; bytes = $size; content_type = $mime
         inline = ($cid -ne '' -or [bool](Get-AttachmentProperty $Attachment '0x7FFE000B' $false))
-        content_id = $cid; transferable = ($kind -eq 1 -and $size -ge 0 -and $size -le 10485760) }
+        content_id = $cid; transferable = ($kind -eq 1 -and $size -ge 0 -and $size -le 104857600)
+        requires_larger_limit = ($size -gt 10485760) }
 }
 
-function Get-ItemAttachments($Item, [string]$Fingerprint, [string]$RequestedId = '') {
+function Assert-ExportPath([string]$Path) {
+    if (-not [IO.Path]::IsPathRooted($Path) -or [IO.Path]::GetFileName($Path) -cne 'attachment.bin') { throw 'invalid_export_path' }
+    $directory = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Path))
+    if ([IO.Path]::GetFileName($directory) -cnotmatch '^e_[0-9a-f]{32}$' -or [IO.File]::Exists($Path)) { throw 'invalid_export_path' }
+    foreach ($candidate in @($directory, [IO.Path]::GetDirectoryName($directory))) {
+        if (-not [IO.Directory]::Exists($candidate) -or (([IO.File]::GetAttributes($candidate) -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw 'invalid_export_path' }
+    }
+}
+
+function Get-ItemAttachments($Item, [string]$Fingerprint, [string]$RequestedId = '', [string]$ExportPath = '', [long]$MaxBytes = 10485760) {
     Assert-AttachmentMessage $Item
     if ($RequestedId -and $RequestedId -cnotmatch '^a_[0-9a-f]{64}$') { throw 'invalid_attachment_id' }
     $found = @()
@@ -202,13 +238,15 @@ function Get-ItemAttachments($Item, [string]$Fingerprint, [string]$RequestedId =
         $metadata = Get-AttachmentMetadata $Item $attachment $n $Fingerprint
         if (-not $RequestedId) { $found += $metadata; continue }
         if ($metadata.id -cne $RequestedId) { continue }
-        if (-not $metadata.transferable) { throw 'unsupported_attachment' }
-        # No SaveAsFile, temporary exports, document parsing, or mail mutation.
-        $bytes = $attachment.PropertyAccessor.GetProperty('http://schemas.microsoft.com/mapi/proptag/0x37010102')
-        if ($bytes -isnot [byte[]] -or $bytes.Length -gt 10485760) { throw 'attachment_data_unavailable' }
+        if ($MaxBytes -lt 1 -or $MaxBytes -gt 104857600 -or -not $metadata.transferable -or $metadata.bytes -gt $MaxBytes) { throw 'unsupported_attachment' }
+        # Save only the requested original to the bridge-generated private path.
+        # No base64 transport, document parser, item.Save, UI opening or execution.
+        Assert-ExportPath $ExportPath
+        $attachment.SaveAsFile($ExportPath)
+        if (-not [IO.File]::Exists($ExportPath) -or (Get-Item -LiteralPath $ExportPath).Length -gt $MaxBytes) { throw 'attachment_data_unavailable' }
         $after = Get-AttachmentMetadata $Item $attachment $n $Fingerprint
         if ($after.id -cne $metadata.id) { throw 'attachment_changed' }
-        return @{ attachment = $metadata; data_base64 = [Convert]::ToBase64String($bytes) }
+        return @{ attachment = $metadata; exported = $true }
     }
     if ($RequestedId) { throw 'attachment_changed' }
     return @{ attachments = $found; returned = $found.Count; attachments_truncated = ($Item.Attachments.Count -gt 200) }
@@ -247,7 +285,8 @@ function Invoke-OutlookRequest($Request) {
         $item = Get-ScopedItem $session $chosen.store $folderIds $Request.message_id
         $requested = if ($Request.operation -eq 'attachment') { [string]$Request.attachment_id } else { '' }
         if ($Request.operation -eq 'attachment' -and -not $requested) { throw 'invalid_attachment_id' }
-        $result = Get-ItemAttachments $item $chosen.fingerprint $requested
+        $maximum = if ($Request.operation -eq 'attachment') { [long]$Request.max_bytes } else { 10485760 }
+        $result = Get-ItemAttachments $item $chosen.fingerprint $requested ([string]$Request.export_path) $maximum
         $result.account = $chosen.address
         return $result
     }
@@ -257,14 +296,14 @@ function Invoke-OutlookRequest($Request) {
     if ($offset -lt 0 -or $offset -gt 100000) { throw 'scan_limit' }
     $folderId = [string]$Request.folder_id
     if ($folderId -and -not $folderIds.Contains($folderId)) { throw 'folder_outside_scope' }
-    $candidates = @(Get-Candidates $folders ($offset + $limit + 1) $folderId $Request.after $Request.before)
+    $candidates = @(Get-Candidates $folders ($offset + $limit + 1) $folderId $Request.after $Request.before ([bool]$Request.attachments_only))
     $messages = @(); $watch = [Diagnostics.Stopwatch]::StartNew(); $examined = 0
     foreach ($candidate in (Get-ScanWindow $candidates $offset $limit)) {
         if ($watch.Elapsed.TotalSeconds -gt 25) { break }
         $examined++
         $item = Get-ScopedItem $session $chosen.store $folderIds $candidate.id
         if ($Request.conversation_id -and [string]$item.ConversationID -cne $Request.conversation_id) { continue }
-        $messages += Get-Message $item ([bool]$Request.include_body) ([int]$Request.max_characters)
+        $messages += Get-Message $item ([bool]$Request.include_body) ([int]$Request.max_characters) 0 ([bool]$Request.include_recipient_details) ([bool]$Request.include_attachment_names)
     }
     $progress = Get-ScanProgress $candidates.Count $offset $examined
     return @{ account = $chosen.address; messages = $messages; scanned_messages = $examined
@@ -277,7 +316,7 @@ if (-not $LibraryOnly) {
         $result = Invoke-OutlookRequest $request
         @{ ok = $true; result = $result } | ConvertTo-Json -Depth 12 -Compress
     } catch {
-        $known = @('selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed', 'body_changed')
+        $known = @('selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'invalid_export_path', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed', 'body_changed')
         $code = if ($_.Exception.Message -in $known) { $_.Exception.Message } else { 'outlook_access_failed' }
         @{ ok = $false; error = $code } | ConvertTo-Json -Compress
     }
