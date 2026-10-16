@@ -25,6 +25,7 @@ def create_demo(output, attachments=False):
         (3, "pop@example.test", "pop.example.test", "pop", "pop3"),
     ]:
         pairs = {f"mail.identity.id{number}.useremail": address,
+                 f"mail.identity.id{number}.fcc_folder": f"{'imap' if kind == 'imap' else 'mailbox'}://{username}@{host}/Sent",
                  f"mail.account.account{number}.identities": f"id{number}",
                  f"mail.account.account{number}.server": f"server{number}",
                  f"mail.server.server{number}.hostname": host,

@@ -9,7 +9,7 @@ import sys
 from accounts import BridgeError
 import attachments
 from mail_dates import resolve_range
-from mail_output import bounded_metadata, budget_bodies, folder_page
+from mail_output import bounded_metadata, budget_bodies, folder_page, message_identity
 
 NOTICE = ("Sign in and sync in classic Outlook first, then keep it running. "
           "Searches are bounded and report scan_incomplete when partial. Outlook may fetch data "
@@ -135,17 +135,17 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
          limit=10, offset=0, scan_limit=1000, conversation_id="", body_limit=6000, attachment_query=None,
          include_snippet=False, scan_offset=0, max_total_characters=24000):
     dates = resolve_range(after, before)
-    include_body = bool(conversation_id or include_snippet or query and field != "subject")
+    include_body = bool(conversation_id or include_snippet or query and field in {"any", "body"})
     value = backend("scan", **selection(), folder_id=folder_id, after=dates["after"] or "", before=dates["before"] or "",
                     include_body=include_body, max_characters=body_limit, scan_limit=scan_limit,
                     conversation_id=conversation_id, scan_offset=scan_offset,
-                    include_recipient_details=bool(recipient or query and field == "any" or conversation_id),
-                    include_attachment_names=bool(attachment_query is not None or query and field == "any" or conversation_id),
+                    include_recipient_details=bool(recipient or query and field in {"any", "metadata"} or conversation_id),
+                    include_attachment_names=bool(attachment_query is not None or query and field in {"any", "metadata"} or conversation_id),
                     attachments_only=attachment_query is not None)
     matches = []
     body_matching = bool(query and field in {"any", "body"})
-    recipient_matching = bool(recipient or query and field == "any")
-    attachment_matching = attachment_query is not None or bool(query and field == "any")
+    recipient_matching = bool(recipient or query and field in {"any", "metadata"})
+    attachment_matching = attachment_query is not None or bool(query and field in {"any", "metadata"})
     body_incomplete = sum(bool(m.get("body_truncated")) for m in value["messages"]) if body_matching else 0
     metadata_incomplete = sum(bool(recipient_matching and m.get("recipients_truncated") or
                                    attachment_matching and m.get("attachments_truncated")) for m in value["messages"])
@@ -153,7 +153,8 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
     for message in value["messages"]:
         if sender.casefold() not in message["sender"].casefold() or recipient.casefold() not in message["recipients"].casefold():
             continue
-        fields = {"subject": message["subject"], "body": message.get("body", "")}
+        fields = {"subject": message["subject"], "body": message.get("body", ""),
+                  "metadata": " ".join([message["subject"], message["sender"], message["recipients"], *message["attachment_names"]])}
         text = fields.get(field, " ".join([message["subject"], message.get("body", ""), message["sender"], message["recipients"], *message["attachment_names"]])).casefold()
         if not all(word in text for word in words):
             continue
@@ -173,7 +174,7 @@ def scan(*, query="", sender="", recipient="", folder_id="", after="", before=""
                 message["snippet"] = " ".join(body.split())[:280]
             for key in ("body_characters", "body_offset", "body_offset_unit", "body_sha256", "has_more_body", "next_body_offset"):
                 message.pop(key, None)
-        bounded_metadata(message)
+        bounded_metadata(message_identity(message, "outlook", value["account"]))
     more = len(matches) > offset + limit
     budget = budget_bodies(shown, max_total_characters) if conversation_id else {}
     return response({"account": value["account"], "messages": shown, "returned": len(shown),
@@ -212,7 +213,7 @@ def read(message_id, max_characters=16000, body_offset=0, expected_body_sha256=N
         raise BridgeError("Use an Outlook message ID from search.")
     value = backend("read", **selection(), message_id=message_id, max_characters=max_characters, body_offset=body_offset,
                     expected_body_sha256=expected_body_sha256 or "")
-    bounded_metadata(value["message"])
+    bounded_metadata(message_identity(value["message"], "outlook", value["account"]))
     return response(value)
 
 
@@ -236,6 +237,9 @@ def attachment_request(operation, message_id, **arguments):
 def list_attachments(message_id, limit=20, offset=0):
     value = attachment_request("attachments", message_id)
     entries = value["attachments"]
+    for item in entries:
+        if item.get("content_type") == "application/ms-tnef" or item["name"].casefold() == "winmail.dat":
+            item.update(attachments.handoff_hints(item["name"], item.get("content_type", "")))
     value.update(attachments=entries[offset:offset + limit], returned=len(entries[offset:offset + limit]),
                  listed_attachment_count=len(entries), has_more=len(entries) > offset + limit,
                  next_offset=offset + limit if len(entries) > offset + limit else None)
@@ -247,5 +251,6 @@ def get_attachment(message_id, attachment_id, max_bytes=attachments.MAX_BYTES):
         raise BridgeError("Use an attachment ID from outlook_list_attachments.")
     def write(path):
         value = attachment_request("attachment", message_id, attachment_id=attachment_id, export_path=str(path.resolve()), max_bytes=max_bytes)
-        return {**value["attachment"], "account": value["account"], "source": "classic_outlook_object_model"}
+        return {**value["attachment"], "account": value["account"], "source": "classic_outlook_object_model",
+                "message_id": message_id, "attachment_id": attachment_id, "client": "outlook"}
     return attachments.export_original(write, max_bytes)

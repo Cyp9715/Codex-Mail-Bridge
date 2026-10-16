@@ -34,12 +34,27 @@ def mime_type(data, name, declared=""):
             return kind
     if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return "image/webp"
+    if data.startswith(b"\x78\x9f\x3e\x22"):
+        return "application/ms-tnef"
     kind = mimetypes.guess_type(name)[0] or declared or "application/octet-stream"
     if not re.fullmatch(r"[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+", kind):
         kind = "application/octet-stream"
     if kind.startswith("image/") or kind in {"text/html", "application/javascript", "text/javascript"}:
         return "application/octet-stream"
     return kind
+
+
+def handoff_hints(name, kind):
+    """Describe host handoff, without opening a file or expanding a container."""
+    suffix = Path(name).suffix.lower()
+    if kind == "application/ms-tnef" or name.casefold() == "winmail.dat":
+        return {"format_hint": "tnef", "container_members_listed": False,
+                "host_action": "inspect_container_with_host_tools",
+                "container_note": "This original may contain other files. The bridge does not expand TNEF; filename search cannot find its inner members. Use an available authorized host decoder or report the limitation."}
+    hint = ("image" if kind.startswith("image/") else
+            "archive" if suffix in {".zip", ".7z", ".tar", ".gz", ".rar"} else
+            "document" if suffix in {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv", ".rtf"} else "file")
+    return {"format_hint": hint, "host_action": "open_original_with_host_tools"}
 
 
 def is_link(path):
@@ -212,7 +227,7 @@ def export_original(writer, max_bytes=MAX_BYTES):
             except OSError:
                 pass
             raise
-    return Transfer({**metadata, "name": name, "content_type": kind, "bytes": count,
+    return Transfer({**metadata, **handoff_hints(name, kind), "name": name, "content_type": kind, "bytes": count,
                      "sha256": digest.hexdigest(), "export_id": export_id,
                      "local_path": str(path.resolve()), "expires_in_seconds": EXPORT_TTL,
                      "delivery": "local_original_file", "document_parsed": False,

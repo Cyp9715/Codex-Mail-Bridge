@@ -1,10 +1,19 @@
-# Mail Bridge 0.8.1 release validation
+# Mail Bridge 0.9.0 release validation
 
 Validated October 17, 2026. This report contains technical outcomes only. No
 mailbox identities, subjects, bodies, filenames, message/store IDs, user paths or
 attachment contents are included. Account-specific evidence stays outside releases.
 
-## Runtime correction
+## Agent workflow improvements
+
+Version 0.9.0 adds body-free metadata topic searches, scoped duplicate-candidate
+keys, configured/provider folder roles, timestamp-basis labels and original-file
+provenance/handoff hints. Three lazy skill references describe broad conversation
+research, local-calendar summaries and original-file comparisons. TNEF expansion,
+document parsing and OCR remain outside the bridge. All 19 existing operations,
+explicit selections and mailbox read-only behavior are retained.
+
+## Retained runtime correction
 
 A running classic Outlook window can exist before `GetActiveObject` can resolve
 its COM registration. Version 0.8.1 recovers only the missing-ROT-entry error by
@@ -21,7 +30,7 @@ See Microsoft's [Outlook automation guidance](https://learn.microsoft.com/en-us/
 
 | Check | Result |
 | --- | --- |
-| Plugin unit/runtime suite | 94 passed; no skips in this run |
+| Plugin unit/runtime suite | 104 passed; no skips in this run |
 | Release/publication suite | 22 passed |
 | Extracted plugin ZIP | Every file matched the inspected Git tree; CLI version/schema discovery worked |
 | Live Thunderbird CLI | Status, compact metadata search, body continuation/revision hash, conversation budget, attachment metadata search/list/get passed |
@@ -29,12 +38,15 @@ See Microsoft's [Outlook automation guidance](https://learn.microsoft.com/en-us/
 | Requested original files | Host-side byte counts and SHA-256 matched; repeated export hashes agreed; copies survived CLI exit |
 | Export release | Every validation export was explicitly released |
 | Outlook read-state check | Sampled body and attachment messages retained their before/after unread state |
-| Separate generated PDF/DOCX handoff | Host-only libraries read the exported originals; the bridge added no document parser |
+| Separate generated PDF/DOCX handoff | Host-only libraries read PDF and same-name DOCX revisions, including strike edits; receipts and hashes matched; the bridge added no document parser |
 | Boundaries | Existing account choices retained; no send/save/delete/move/mark-read, forced sync, remote image fetch or security-policy changes requested |
 
-The local CLI ran from extracted release content through Codex command/file tools.
-The currently installed older plugin was not replaced during this verification.
-Automatic routing in a newly installed 0.8.1 plugin conversation, other providers,
+The local CLI ran from extracted release content through Codex command/file tools. New metadata searches, duplicate keys, folder roles and file provenance were checked locally for both clients. Automatic routing is a separate host-installation check.
+After archive validation, the existing local plugin was updated through the
+supported Codex plugin CLI and its installed runtime version was checked. Existing
+account selections remain outside the plugin cache. Reload/start a new conversation
+to load the updated skill; source edits do not refresh an active conversation.
+Automatic routing in a newly installed 0.9.0 plugin conversation, other providers,
 Exchange-specific SMTP resolution, other PCs and live non-Windows Thunderbird
 remain unverified. Successful sampled requests do not certify complete mailbox
 coverage, all attachments, or every client/store layout. No public demo recording
@@ -42,7 +54,7 @@ or OpenAI directory approval is claimed.
 
 ## Download and install
 
-For a complete local installation, download **codex-mail-bridge-0.8.1-source.zip**
+For a complete local installation, download **codex-mail-bridge-0.9.0-source.zip**
 from the GitHub Release. It includes the local marketplace and plugin directory.
 Extract it into a folder you intend to keep, open a terminal in that folder, then:
 
@@ -56,13 +68,13 @@ access are required; Node.js is an optional launcher. Classic Outlook must alrea
 be running and Windows PowerShell must permit scripts under the existing policy.
 Private account selections are outside the package and are preserved.
 
-The smaller **codex-mail-bridge-0.8.1-plugin.zip** contains one plugin for a host's
+The smaller **codex-mail-bridge-0.9.0-plugin.zip** contains one plugin for a host's
 supported package workflow. It has no marketplace wrapper. Do not register that
 directory as a marketplace without providing the host's required marketplace
 configuration. Git installation is also available:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.1
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
 codex plugin add codex-mail-bridge@cyp-soft-local
 ```
 

@@ -1,6 +1,6 @@
 # Local CLI contract
 
-Version 0.8.1 has no MCP transport, background process or network listener.
+Version 0.9.0 has no MCP transport, background process or network listener.
 The packaged skill invokes one local operation per command. It requires a local
 desktop host with command/file permission, Python 3.10+, and a signed-in mail client.
 
@@ -68,10 +68,37 @@ types, date bounds, output budgets and continuation controls. All operations
 refuse mailbox writes. Account selection requires `confirm:true` after an explicit
 user choice. Only selection settings and generated attachment exports are written.
 
+## Evidence for agent analysis
+
+Both mail searches accept `field:"metadata"`: subject, parties and attachment
+filenames, with no body read or matching unless a snippet is explicitly requested.
+Use subject/metadata discovery before broader body/any research. Query words are
+AND literal substrings; alternative spellings require separate queries.
+
+Search/read/thread messages carry `dedup_key`, `dedup_basis`, `folder_role` and
+`date_basis`. An `internet_message_id` key is a duplicate candidate within the
+selected client/account, calculated before displayed headers are clipped. The
+bridge returns every copy; matching keys do not prove identical bodies. Verify
+material discrepancies using body hashes. Missing, malformed or provider-truncated
+headers use `local_message_id`; do not merge them by subject/date/sender.
+
+Status folders include `role`. Thunderbird uses configured identity folder URIs
+and the inbox URI, without changing the selection fingerprint. Outlook resolves
+default folders inside the selected store. Localized names and custom paths are
+not role heuristics. `other` means unknown/mixed, including sent copies configured
+inside the inbox. Roles describe folders, not guaranteed message direction.
+Thunderbird dates use `indexed_message_date`; Outlook uses `received_time`.
+
+The skill loads separate conversation, date-summary and original-file-comparison
+guides only when needed. See [agent workflows](AGENT_WORKFLOWS.md).
+
 ## File lifecycle
 
 Attachment get returns `local_path`, `export_id`, original name, `content_type`,
-bytes and SHA-256. The host reads/views that original separately. Exports survive
+bytes and SHA-256, plus `client`, `message_id`, `attachment_id`, `format_hint` and
+`host_action`. Preserve this receipt when retaining a private host copy or comparing
+versions. TNEF hints disclose that container members were not listed; get delivers
+the original container only. The host reads/views that original separately. Exports survive
 CLI exit; there are no MCP resources or inline base64/image responses.
 
 Exports default to `exports/` under the private Thunderbird settings directory.

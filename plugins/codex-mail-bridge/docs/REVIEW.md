@@ -1,11 +1,11 @@
 # Mail Bridge verification evidence
 
-Version 0.8.1 · synthetic public data only
+Version 0.9.0 · synthetic public data only
 
 The local skill uses 19 one-shot CLI operations with schemas loaded on demand.
 See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.
 
-- Current plugin suite: 94 pass; no skips. PowerShell 5.1 source syntax, synthetic
+- Current plugin suite: 104 pass; no skips. PowerShell 5.1 source syntax, synthetic
   scope and missing-ROT-connection checks pass under the existing policy.
 - Release/publication suite: 22 pass.
 - Regression coverage includes scoped searches, UTC/subsecond bounds, body revision
@@ -20,6 +20,11 @@ See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.
 - Installed-host routing, Exchange-specific SMTP resolution, other providers/PCs
   and live non-Windows Thunderbird remain unverified. See
   [release validation](RELEASE_VALIDATION.md).
+
+New synthetic coverage includes body-free metadata topics, duplicate-candidate
+keys/fallbacks, localized/custom/mixed folder roles, attachment provenance,
+same-name different originals and TNEF hints without expansion. Host QA verifies
+ordinary DOCX strikethrough separately from plugin transport.
 
 ## Optional functional walkthrough
 

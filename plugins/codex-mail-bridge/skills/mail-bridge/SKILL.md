@@ -40,7 +40,10 @@ archive stores and shared delivery stores are unsupported. Local results and an
 offline flag do not prove server sync completeness.
 
 Prefer `_search` with `field:"subject"` for subject requests; use `"body"`/`"any"`
-when content matching is needed. Body matching stays local; previews require
+when content matching is needed. For a named topic or correspondent, start with
+`field:"metadata"` (subject, parties, filenames; no body read), then widen if needed.
+All query words are AND substring matches; run alternative spellings separately.
+Body matching stays local; previews require
 `include_snippet:true`. Outlook enumerates detailed recipients/filenames only for
 relevant filters. Inspect `recipient_addresses_included` and
 `attachment_names_included`; omitted details do not establish absence.
@@ -80,6 +83,22 @@ Consume batches, then `--release EXPORT_ID` for each finished file. Calls are
 sequential; retry `export_busy` after the other call ends. Later exports or
 `--cleanup` remove files older than 10 minutes. No background cleaner runs;
 locked files can remain, and release cannot recall host/chat copies.
+
+Search/read/thread results include `dedup_key`/`dedup_basis`, `folder_role` and
+`date_basis`. Never merge by subject alone or silently discard mailbox copies.
+Roles come from configured/provider folders, not localized names; `other` is
+unknown. Only `internet_message_id` keys identify duplicate candidates across
+folders in this account; compare body hashes if copies differ materially.
+Get returns `client`, `message_id`, `attachment_id` and `format_hint` with the
+original-file receipt. Preserve that provenance and SHA-256 when comparing files.
+
+Load only the guide needed for the task:
+- [Conversation research](references/conversations.md): all discussion, sent/received,
+  search expansion, quoted history and chronology.
+- [Date summaries](references/date-summaries.md): timezone/day-of-week boundaries,
+  sent-folder exclusions, duplicate labels and honest counts.
+- [Original-file comparisons](references/file-comparisons.md): version provenance,
+  same-name different-byte files, containers, redlines and host handoff.
 
 Mailbox access is read-only. Account choice writes private settings; get writes
 an original copy. Do not send, save drafts, delete, move, mark read, force sync,

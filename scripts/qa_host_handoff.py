@@ -34,14 +34,20 @@ with tempfile.TemporaryDirectory(dir=root / "work", prefix="synthetic-handoff-")
     document.add_paragraph("Synthetic original-file handoff.")
     stream = BytesIO()
     document.save(stream)
-    originals = {"agenda.pdf": pdf(), "handoff.docx": stream.getvalue()}
+    first_docx = stream.getvalue()
+    paragraph = document.add_paragraph()
+    paragraph.add_run("Warranty 6 months. ").font.strike = True
+    paragraph.add_run("Warranty 12 months.")
+    revised = BytesIO()
+    document.save(revised)
+    originals = [("agenda.pdf", pdf()), ("handoff.docx", first_docx), ("handoff.docx", revised.getvalue())]
     message = EmailMessage(policy=policy.SMTP)
     message["Message-ID"] = "<demo-101@example.test>"
     message["From"] = "alex@example.test"
     message["To"] = "demo@example.test"
     message["Subject"] = "Project Aurora meeting"
     message.set_content("Synthetic body.")
-    for name, data in originals.items():
+    for name, data in originals:
         subtype = "pdf" if name.endswith(".pdf") else "vnd.openxmlformats-officedocument.wordprocessingml.document"
         message.add_attachment(data, maintype="application", subtype=subtype, filename=name)
     folder.write_bytes(b"From - synthetic date\r\n" + message.as_bytes())
@@ -71,19 +77,30 @@ with tempfile.TemporaryDirectory(dir=root / "work", prefix="synthetic-handoff-")
         found = tool("thunderbird_search_attachments", {"filename": "handoff.docx", "after": "2026-10-01T00:00:00Z"})
         assert [m["id"] for m in found["messages"]] == [101]
         listing = tool("thunderbird_list_attachments", {"message_id": 101})
-        for attachment in listing["attachments"]:
+        receipts = []
+        for attachment, (name, data) in zip(listing["attachments"], originals):
             meta = tool("thunderbird_get_attachment", {"message_id": 101, "attachment_id": attachment["id"]})
             path = Path(meta["local_path"])
             paths.append(path)
             exported.append(meta["export_id"])
-            assert path.read_bytes() == originals[attachment["name"]]
+            assert attachment["name"] == name and path.read_bytes() == data
             assert meta["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
             assert meta["document_parsed"] is False
+            assert meta["client"] == "thunderbird" and meta["message_id"] == 101
+            assert meta["attachment_id"] == attachment["id"]
+            receipts.append(meta)
             # This is the separate host/file-tool process, not plugin parsing.
             if attachment["name"].endswith(".pdf"):
                 assert "Synthetic agenda" in PdfReader(path).pages[0].extract_text()
             else:
                 assert Document(path).paragraphs[0].text == "Synthetic original-file handoff."
+                if data == revised.getvalue():
+                    amended = Document(path).paragraphs[1]
+                    assert any(run.font.strike for run in amended.runs)
+                    assert "".join(run.text for run in amended.runs if not run.font.strike) == "Warranty 12 months."
+        assert receipts[1]["name"] == receipts[2]["name"]
+        assert receipts[1]["sha256"] != receipts[2]["sha256"]
+        assert receipts[1]["attachment_id"] != receipts[2]["attachment_id"]
         assert all(path.exists() for path in paths), "Exports must survive CLI exit for host reading"
         for export_id in exported:
             assert command("--release", export_id)["released"]
@@ -92,7 +109,9 @@ with tempfile.TemporaryDirectory(dir=root / "work", prefix="synthetic-handoff-")
         for export_id in exported:
             command("--release", export_id)
 
-print(json.dumps({"files": 2, "original_bytes_and_hashes_verified": True,
+print(json.dumps({"files": 3, "original_bytes_and_hashes_verified": True,
                   "separate_host_pdf_and_docx_read": True, "survives_cli_exit": True,
+                  "same_name_versions_distinguished": True, "host_strikethrough_review": True,
+                  "receipt_provenance_verified": True,
                   "explicit_release_verified": True, "mcp_server_required": False,
                   "installed_plugin_session_verified": False}))

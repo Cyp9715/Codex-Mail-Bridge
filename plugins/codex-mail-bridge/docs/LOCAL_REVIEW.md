@@ -1,4 +1,4 @@
-# Mail Bridge 0.8.1 local architecture review
+# Mail Bridge 0.9.0 local architecture review
 
 Reviewed 2026-10-17. Local distribution and useful mail access are the release
 criteria; public-directory submission is not part of this release.
@@ -9,8 +9,9 @@ Keep the skill plus 19 one-shot CLI operations. It runs only on request, needs n
 server lifetime, socket, OAuth, API key or new dependency, and exposes one schema
 on demand. This suits a local host with command/file tools. MCP could offer native
 tool discovery in a different host, but would add lifecycle and integration work
-without improving original-file delivery here. The skill was reduced from 7,080
-to 5,408 UTF-8 bytes (24%); byte savings are not exact token counts.
+without improving original-file delivery here. The earlier 0.8 architecture shortened the primary skill. Version 0.9 adds
+three task references that load only for the requested workflow; byte counts are
+not token measurements. Schemas remain lazy and no document dependencies are added.
 
 The bridge discovers scoped mail, filters metadata/text, pages bodies and
 separates MIME transfer encoding. GPT decides dates, relevance and interpretation.
@@ -59,7 +60,7 @@ bypass was added.
 
 ## Verification
 
-Current rerun: 94 plugin cases pass and 22 release/publication cases pass, with
+Current rerun: 104 plugin cases pass and 22 release/publication cases pass, with
 no skips under the existing RemoteSigned policy. PowerShell syntax and synthetic
 scope/COM-connection cases pass. Automated fixtures use synthetic .test mail only.
 The earlier 0.8.0 audit skipped its runtime case under Restricted policy; policies
@@ -89,3 +90,25 @@ Version 0.8.1 fixes missing Outlook ROT registration by reconnecting only to one
 already-running process in the current Windows session. Closed/foreign/ambiguous
 instances and unrelated/security COM errors are refused. No profile or policy
 changes are made. The original v0.8.0 tag is preserved.
+
+## Version 0.9 agent analysis review
+
+Generic topic searches previously had to use subject-only or body-inclusive any
+matching. The metadata field now covers subject, parties and indexed filenames
+without reading bodies. It does not silently change existing query semantics.
+
+Every returned copy remains visible. Scoped Internet Message-ID candidate keys
+help the agent identify label copies, while invalid/missing IDs remain local.
+Body hashes resolve material differences; no content or subject heuristic merges
+mail. Configured/provider folder roles and date-basis labels replace assumptions
+about translated folder names or receipt timestamps. Mixed/unknown roles remain
+explicit, and role preferences cannot expand account scope or invalidate a
+previously selected identity.
+
+Original-file receipts preserve mail/attachment IDs and host-action hints. TNEF
+is identified but never expanded by the bridge. Optional host decoding remains
+separate, as do document parsing, strike/track-change review, OCR and image viewing.
+The task references cover quoted histories, calendar boundaries, evidence-based
+counts, provenance, identical filenames, signed-final uncertainty and private
+retention during longer comparisons. Source-only host QA now covers two same-name
+DOCX versions and ordinary strikethrough as well as PDF reading.

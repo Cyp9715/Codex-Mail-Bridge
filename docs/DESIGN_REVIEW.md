@@ -1,7 +1,7 @@
 # Plugin architecture review for 0.7.1
 
 > Historical notes through 0.7.1. See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for
-> the current local 0.8.1 architecture and verification. Public submission
+> the current local 0.9.0 architecture and verification. Public submission
 > is not part of this local release.
 
 The current plugin is a desktop skill plus a one-shot local CLI. It needs no MCP

@@ -104,6 +104,28 @@ class OutlookTests(unittest.TestCase):
         self.assertEqual(outlook.search(query="agenda.pdf", sender="alex", recipient="demo")["returned"], 1)
         self.assertEqual(outlook.search(query="October", field="body")["returned"], 1)
 
+    def test_metadata_topics_do_not_request_or_match_body(self):
+        self.select()
+        self.assertEqual(outlook.search(query="alex", field="metadata")["returned"], 2)
+        request = self.calls[-1][1]
+        self.assertFalse(request["include_body"])
+        self.assertTrue(request["include_recipient_details"])
+        self.assertTrue(request["include_attachment_names"])
+        self.assertEqual(outlook.search(query="October", field="metadata")["returned"], 0)
+
+    def test_duplicate_headers_remain_separate_and_missing_headers_use_local_keys(self):
+        self.select()
+        rows = copy.deepcopy(MESSAGES)
+        for row in rows:
+            row["message_id_header"] = "same@example.test"
+        with patch(__name__ + ".MESSAGES", rows):
+            value = outlook.search()
+        self.assertEqual(value["returned"], 2)
+        self.assertEqual(value["messages"][0]["dedup_key"], value["messages"][1]["dedup_key"])
+        value = outlook.search()
+        self.assertNotEqual(value["messages"][0]["dedup_key"], value["messages"][1]["dedup_key"])
+        self.assertEqual(value["messages"][0]["dedup_basis"], "local_message_id")
+
     def test_partial_results_and_pagination_remain_explicit(self):
         self.select()
         first = outlook.search(limit=1)
@@ -263,6 +285,9 @@ class OutlookTests(unittest.TestCase):
         listing = outlook.list_attachments("A" * 32)
         value = outlook.get_attachment("A" * 32, listing["attachments"][0]["id"])
         self.assertEqual(Path(value.metadata["local_path"]).read_bytes(), b'%PDF-sample\x00\xff')
+        self.assertEqual(value.metadata["message_id"], "A" * 32)
+        self.assertEqual(value.metadata["attachment_id"], listing["attachments"][0]["id"])
+        self.assertEqual(value.metadata["client"], "outlook")
         self.assertEqual(self.calls[-1][1]["fingerprint"], ACCOUNT["fingerprint"])
 
     def test_attachment_scope_invalid_input_and_changed_selection(self):

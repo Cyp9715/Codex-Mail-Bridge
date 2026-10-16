@@ -37,7 +37,9 @@ OpenAI에 전달될 수 있습니다. 로컬 실행이 GPT의 오프라인 처�
 `after`/`before` 값으로 조회합니다. 시작은 포함, 종료는 제외이며 어느 쪽이든
 생략할 수 있습니다. 날짜 또는 시간대 오프셋이 있는 RFC 3339 시각을 받습니다.
 
-검색은 기본적으로 작은 메타데이터 페이지를 반환합니다. 필요한 본문 구간과
+검색은 기본적으로 작은 메타데이터 페이지를 반환합니다. `field:"metadata"`는
+제목·발신자·수신자·파일명만 검색하며 본문을 읽지 않습니다. 중복 식별 키는 후보를
+구분하는 정보이며, 플러그인이 메일을 자동으로 합치지는 않습니다. 필요한 본문 구간과
 대화만 추가로 읽습니다. 넓은 조회는 페이지, Outlook 후보 구간, 기간·폴더 분할로
 이어갈 수 있습니다. 작은 기본값이 사용자 작업 전체의 범위를 제한하지 않습니다.
 불완전한 검색, 잘린 본문, 오래된 색인 여부를 GPT에 명시합니다.
@@ -68,12 +70,12 @@ Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 �
 업데이트 후 설치본을 다시 불러와야 새 코드가 적용됩니다.
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.1
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
 ```
 
 플러그인 목록에서 Cyp Soft 로컬 마켓플레이스를 선택해 Mail Bridge를 설치하세요.
-0.8.1은 Outlook 검색의 불필요한 COM 조회를 줄이고, Exchange 주소 조회와 원본 파일
-전달을 보완했습니다. Thunderbird의 오래된 mbox는 `cache_scan_offset`으로 이어서
+0.9.0은 본문을 읽지 않는 메타데이터 검색, 중복 후보 식별, 폴더 용도, 원본 출처
+정보와 대화·요일별 정리·문서 버전 비교 안내를 보강했습니다. Thunderbird의 오래된 mbox는 `cache_scan_offset`으로 이어서
 찾고 `cache_scan_bytes`로 탐색 범위를 넓힐 수 있습니다. Maildir도
 `maildir_scan_offset`으로 이어서 찾고 `maildir_scan_limit`을 조절할 수 있습니다.
 
@@ -87,15 +89,15 @@ Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션�
 있습니다. 필요한 명령의 스키마만 조회하고, 조건은 비공개 UTF-8 JSON 데이터
 파일로 전달합니다. [CLI 규약](docs/CLI.md)을 참고하세요.
 
-자동 검증 116개가 통과했습니다. 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의
+자동 검증 126개가 통과했습니다. 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의
 검색·본문 이어 읽기·대화·첨부 원본 전달을 확인했고, 표본 Outlook 메일의 읽음 상태도 유지됐습니다.
-0.8.1은 실행 중인 Outlook의 COM 연결 실패를 보완합니다. 다른 PC·공급자와 새 설치본의
+실행 중인 Outlook의 COM 연결 보완도 유지합니다. 다른 PC·공급자와 새 설치본의
 자동 스킬 호출 검증은 남아 있습니다. [검증 범위와 ZIP 설치 안내](docs/RELEASE_VALIDATION.md)를 참고하세요.
 소스는 MIT 라이선스이며 공개 디렉터리의 승인과 별개입니다.
 
 현재 버전은 로컬 Git 마켓플레이스와 ZIP 배포에 집중합니다.
 OpenAI 공개 제출 포털 없이 로컬 설치할 수 있습니다.
-[로컬 설계 검토](docs/LOCAL_REVIEW.md)에 개선 내용과 남은 검증 범위를 기록했습니다.
+[에이전트 활용과 데이터 형식](docs/AGENT_WORKFLOWS.md) 및 [로컬 설계 검토](docs/LOCAL_REVIEW.md)에 개선 내용과 남은 검증 범위를 기록했습니다.
 
 [지원](docs/support.md) · [개인정보](docs/privacy.md) · [이용약관](docs/terms.md)
 

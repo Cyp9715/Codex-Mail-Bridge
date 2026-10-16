@@ -1,4 +1,4 @@
-# Mail Bridge 0.8.1
+# Mail Bridge 0.9.0
 
 Let GPT find and reference email from Thunderbird or classic Outlook already
 signed in on this computer, including Office 2019. Sign in and sync needed mail
@@ -16,7 +16,7 @@ Register the Git source and install Mail Bridge from the Cyp Soft local
 marketplace in the host plugin browser:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.1
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
 ```
 
 For ZIP installation, use the source ZIP containing the local marketplace.
@@ -25,6 +25,11 @@ After extracting it, run `codex plugin marketplace add .` from its root and
 host's supported package workflow. Preserve other marketplace entries. Reload/reinstall after an
 update and start a new local conversation. Editing source does not rewrite an
 installed plugin cache. Public-directory submission is not required.
+
+Version 0.9.0 adds body-free metadata topic searches, scoped duplicate-candidate
+keys, configured folder roles and original-file provenance. Lazy task guides
+cover conversation research, weekday summaries and document-version comparisons.
+See [agent workflows](docs/AGENT_WORKFLOWS.md).
 
 ## Workflow
 

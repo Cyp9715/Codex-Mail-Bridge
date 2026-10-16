@@ -250,6 +250,8 @@ def parts(raw, account, message_id):
                 "bytes": None, "size_note": "Decoded byte count is checked only for the requested file.",
                 "inline": bool(cid or part.get_content_disposition() == "inline"),
                 "content_id": cid, "transferable": True}
+        if kind == "application/ms-tnef" or meta["name"].casefold() == "winmail.dat":
+            meta.update(attachments.handoff_hints(meta["name"], kind))
         result.append((meta, part))
         if len(result) > attachments.MAX_ATTACHMENTS:
             raise BridgeError("Message contains too many attachments for one bounded listing.")
@@ -285,7 +287,8 @@ def source_attachment(message_id, attachment_id, max_bytes=attachments.MAX_BYTES
             current_profile, current_account = selection()
             if current_profile["id"] + current_account["fingerprint"] != account["cache_scope"]:
                 raise BridgeError("Selected account changed during attachment access.")
-            return data, {**meta, "account": account["emails"][0], "source": "local_thunderbird_mime_cache"}
+            return data, {**meta, "account": account["emails"][0], "source": "local_thunderbird_mime_cache",
+                          "message_id": message_id, "attachment_id": attachment_id, "client": "thunderbird"}
     raise BridgeError("Attachment changed or is outside the selected message/account. List it again.")
 
 

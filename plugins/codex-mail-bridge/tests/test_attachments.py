@@ -81,6 +81,10 @@ class ThunderbirdAttachmentTests(unittest.TestCase):
         self.assertEqual(Path(meta['local_path']).read_bytes(), self.originals[0])
         self.assertEqual(meta['sha256'], hashlib.sha256(self.originals[0]).hexdigest())
         self.assertFalse(meta['document_parsed'])
+        self.assertEqual(meta['client'], 'thunderbird')
+        self.assertEqual(meta['message_id'], 101)
+        self.assertEqual(meta['attachment_id'], entry['id'])
+        self.assertEqual(meta['format_hint'], 'document')
         self.assertLess(len(json.dumps(result)), 2200)
         self.assertFalse({'blob', 'data', 'resource_uri', 'content'} & set(meta))
 
@@ -90,6 +94,38 @@ class ThunderbirdAttachmentTests(unittest.TestCase):
         self.assertEqual(value.metadata['content_type'], 'image/png')
         self.assertEqual(Path(value.metadata['local_path']).read_bytes(), self.originals[1])
         self.assertFalse(hasattr(value, 'content'))
+
+    def test_tnef_is_hinted_without_expansion_and_only_original_bytes_are_exported(self):
+        from email.message import EmailMessage, Message
+        from email import policy
+        original = b'\x78\x9f\x3e\x22' + b'Synthetic opaque transport container'
+        message = EmailMessage(policy=policy.SMTP)
+        message['Message-ID'] = '<demo-101@example.test>'
+        message.set_content('Synthetic container example')
+        message.add_attachment(original, maintype='application', subtype='ms-tnef', filename='winmail.dat')
+        self.folder.write_bytes(b'From - date\n' + message.as_bytes())
+        payload = Message.get_payload
+        def no_decode(part, i=None, decode=False):
+            if decode: raise AssertionError('Container listing decoded bytes')
+            return payload(part, i=i, decode=False)
+        with patch.object(Message, 'get_payload', no_decode):
+            entry = self.listing()[0]
+        self.assertEqual(entry['format_hint'], 'tnef')
+        self.assertFalse(entry['container_members_listed'])
+        value = tb.get_attachment(101, entry['id']).metadata
+        self.assertEqual(Path(value['local_path']).read_bytes(), original)
+        self.assertEqual(value['content_type'], 'application/ms-tnef')
+        self.assertEqual(value['host_action'], 'inspect_container_with_host_tools')
+        self.assertFalse(value['document_parsed'])
+
+    def test_same_filename_originals_keep_distinct_hashes_and_provenance(self):
+        entries = self.listing()
+        first = tb.get_attachment(101, entries[0]['id']).metadata
+        second = tb.get_attachment(101, entries[2]['id']).metadata
+        self.assertEqual(first['name'], second['name'])
+        self.assertNotEqual(first['sha256'], second['sha256'])
+        self.assertNotEqual(first['attachment_id'], second['attachment_id'])
+        self.assertEqual(first['message_id'], second['message_id'])
 
     def test_scope_deleted_other_account_and_forged_ids(self):
         entry = self.listing()[0]

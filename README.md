@@ -12,7 +12,7 @@ Keep classic Outlook running in that signed-in profile.** Thunderbird can read
 an existing local index/cache with its window closed. The bridge does not log in
 or request passwords.
 
-Version 0.8.1 uses a **skill and one-shot local scripts**. No MCP server, network
+Version 0.9.0 uses a **skill and one-shot local scripts**. No MCP server, network
 listener, Cyp Soft backend or cloud mail connection is needed. The installed
 skill invokes only the requested local operation and receives compact JSON.
 Retrieved account details, mail text and files opened by the AI host can be sent
@@ -41,7 +41,7 @@ marketplace entries. Start a new local conversation after installation/reload an
 select Mail Bridge. To register this Git marketplace:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.8.1
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
 ```
 
 Choose the Cyp Soft local marketplace in the host plugin browser and install Mail Bridge. Reload the installed plugin after updates; editing source does not rewrite installed caches.
@@ -72,6 +72,11 @@ are JSON data from stdin or a private UTF-8 argument file, never executable shel
 fragments. See the [CLI contract](docs/CLI.md).
 
 ## Targeted queries and broad review
+
+Version 0.9.0 adds body-free metadata topic searches, scoped duplicate-candidate
+keys, configured folder roles and original-file provenance. Lazy task guides
+cover conversation research, weekday summaries and document-version comparisons.
+See [agent workflows](docs/AGENT_WORKFLOWS.md).
 
 | Caller control | Behavior |
 | --- | --- |

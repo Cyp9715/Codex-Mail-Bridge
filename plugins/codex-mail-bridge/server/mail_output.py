@@ -1,5 +1,20 @@
 """Bound model-facing text while preserving IDs and explicit continuation."""
 import hashlib
+import re
+
+
+def message_identity(item, client, account_scope=""):
+    """Expose a duplicate candidate key, never silently discard mailbox copies."""
+    header = str(item.get("message_id_header") or "").strip()
+    if header.startswith("<") and header.endswith(">"):
+        header = header[1:-1]
+    usable = (not item.get("message_id_header_truncated") and
+              bool(re.fullmatch(r"[^\s<>\x00-\x1f]{1,2048}@[^\s<>\x00-\x1f]{1,2048}", header)))
+    basis = "internet_message_id" if usable else "local_message_id"
+    identity = header if usable else str(item["id"])
+    digest = hashlib.sha256((client + "\n" + account_scope + "\n" + basis + "\n" + identity).encode("utf-8")).hexdigest()
+    item.update(dedup_key="m_" + digest, dedup_basis=basis)
+    return item
 
 
 def folder_page(folders, limit=50, offset=0):

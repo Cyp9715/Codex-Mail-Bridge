@@ -104,7 +104,7 @@ def profile_by_id(profile_id):
 
 def read_accounts(profile):
     prefs = {}
-    pattern = re.compile(r'^user_pref\("(mail\.(?:identity\.[^.]+\.useremail|account\.[^.]+\.(?:server|identities)|server\.[^.]+\.(?:hostname|userName|type|port)))", (.+)\);$')
+    pattern = re.compile(r'^user_pref\("(mail\.(?:identity\.[^.]+\.(?:useremail|fcc_folder|draft_folder|archive_folder|stationery_folder)|account\.[^.]+\.(?:server|identities)|server\.[^.]+\.(?:hostname|userName|type|port)))", (.+)\);$')
     with (profile["path"] / "prefs.js").open(encoding="utf-8") as source:
         for line in source:
             match = pattern.match(line.strip())
@@ -124,7 +124,7 @@ def read_accounts(profile):
         host, user = prefs.get(base + "hostname"), prefs.get(base + "userName")
         if not isinstance(host, str) or not isinstance(user, str) or not host or not user:
             continue
-        identity_ids = str(prefs.get("mail.account." + account_id + ".identities", "")).split(",")
+        identity_ids = [value.strip() for value in str(prefs.get("mail.account." + account_id + ".identities", "")).split(",")]
         emails = [prefs["mail.identity." + identity + ".useremail"] for identity in identity_ids
                   if isinstance(prefs.get("mail.identity." + identity + ".useremail"), str)]
         if not emails:
@@ -133,6 +133,17 @@ def read_accounts(profile):
                    "username": user, "type": kind, "port": prefs.get(base + "port")}
         canonical = json.dumps(account, sort_keys=True, ensure_ascii=False)
         account["fingerprint"] = hashlib.sha256(canonical.encode()).hexdigest()
+        # Folder preferences may change without changing the selected identity.
+        # Never infer roles from localized names or extend account scope.
+        roles = {}
+        for identity in identity_ids:
+            for pref, role in (("fcc_folder", "sent"), ("draft_folder", "drafts"),
+                               ("archive_folder", "archive"), ("stationery_folder", "templates")):
+                uri = prefs.get("mail.identity." + identity + "." + pref)
+                if isinstance(uri, str) and allowed_uri(uri, account):
+                    key = folder_key(uri, account)
+                    roles[key] = role if key not in roles or roles[key] == role else "other"
+        account["folder_roles"] = roles
         accounts.append(account)
     return accounts
 
@@ -197,6 +208,22 @@ def allowed_uri(uri, account):
         return False
 
 
+def folder_key(uri, account):
+    parts = urlsplit(uri)
+    return (parts.scheme, (parts.hostname or "").casefold(), unquote(parts.username or ""),
+            parts.port or account.get("port"), unquote(parts.path))
+
+
+def folder_role(uri, account):
+    key = folder_key(uri, account)
+    configured = account.get("folder_roles", {}).get(key)
+    if configured:
+        # A user can store sent/archive copies in the inbox. It then has mixed
+        # roles; callers must not exclude all received mail as sent copies.
+        return "other" if key[-1].casefold() == "/inbox" else configured
+    return "inbox" if key[-1].casefold() == "/inbox" else "other"
+
+
 @contextmanager
 def database():
     profile, account = selection()
@@ -213,6 +240,8 @@ def database():
         db.execute("BEGIN")
         folders = [dict(row) for row in db.execute("SELECT id, folderURI, name FROM folderLocations")
                    if allowed_uri(row["folderURI"], account)]
+        for folder in folders:
+            folder["role"] = folder_role(folder["folderURI"], account)
         if not folders:
             raise BridgeError("The selected account has no indexed folders. Enable indexing and sync Thunderbird.")
         yield db, folders, profile, account

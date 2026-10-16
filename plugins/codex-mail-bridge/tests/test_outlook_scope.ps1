@@ -127,6 +127,37 @@ $compact | Add-Member ScriptProperty Body { throw 'Unrequested body access' }
 $summary = Get-Message $compact $false 6000 0 $false $false
 if ($summary.recipient_addresses_included -or $summary.attachment_names_included -or -not $summary.has_attachments) { throw 'Compact metadata disclosure is incorrect' }
 
+# Unicode/ANSI Internet Message-ID fallback supports label-copy candidates without
+# reading a body or enumerating recipients/attachments for compact searches.
+$mailProperty = New-Object psobject
+$mailProperty | Add-Member ScriptMethod GetProperty {
+    param($Tag)
+    if ($Tag.EndsWith('0x1035001E')) { return '<same@example.test>' }
+    throw 'Synthetic Unicode property unavailable'
+}
+$compact | Add-Member NoteProperty PropertyAccessor $mailProperty
+$roles = @{ 'inbox-a' = 'inbox' }
+$summary = Get-Message $compact $false 6000 0 $false $false $roles
+if ($summary.message_id_header -cne '<same@example.test>' -or $summary.folder_role -ne 'inbox' -or $summary.date_basis -ne 'received_time') { throw 'Message evidence metadata unavailable' }
+if ($summary.message_id_header_truncated) { throw 'Short header was marked truncated' }
+$oversizeProperty = New-Object psobject
+$oversizeProperty | Add-Member ScriptMethod GetProperty { param($Tag) return ('x' * 5000) }
+$compact.PropertyAccessor = $oversizeProperty
+$summary = Get-Message $compact $false 6000 0 $false $false
+if (-not $summary.message_id_header_truncated -or $summary.message_id_header.Length -ne 4096) { throw 'Provider header output is unbounded' }
+
+# Provider folder IDs, not translated display names, define roles. A foreign or
+# unknown default folder never adds an account folder to the eligible set.
+$roleStore = New-Object psobject -Property @{ StoreID = 'store-a' }
+$roleStore | Add-Member ScriptMethod GetDefaultFolder {
+    param($Kind)
+    if ($Kind -eq 5) { return [pscustomobject]@{ EntryID = 'foreign-sent'; StoreID = 'store-b'; Name = 'Sent' } }
+    if ($Kind -eq 6) { return [pscustomobject]@{ EntryID = 'inbox-a'; StoreID = 'store-a'; Name = 'Translated folder' } }
+    throw 'Synthetic folder absent'
+}
+$roles = Get-FolderRoles $roleStore $folderIds
+if ($roles.Count -ne 1 -or $roles['inbox-a'] -ne 'inbox') { throw 'Folder roles guessed names or escaped scope' }
+
 $exchangeProperty = New-Object psobject
 $exchangeProperty | Add-Member ScriptMethod GetProperty { param($Tag) return 'alex@example.test' }
 $exchange = [pscustomobject]@{ Type = 'EX'; Address = '/o=synthetic/ou=example'; PropertyAccessor = $exchangeProperty }

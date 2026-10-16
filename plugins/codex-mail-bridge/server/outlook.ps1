@@ -83,6 +83,29 @@ function Get-ScopedFolders($Store) {
     return $result
 }
 
+function Get-FolderRoles($Store, $FolderIds) {
+    $roles = @{}
+    foreach ($pair in @(@(5, 'sent'), @(6, 'inbox'), @(23, 'junk'))) {
+        try {
+            $folder = $Store.GetDefaultFolder([int]$pair[0])
+            if ($folder.StoreID -ceq $Store.StoreID -and $FolderIds.Contains([string]$folder.EntryID)) {
+                $roles[[string]$folder.EntryID] = [string]$pair[1]
+            }
+        } catch { }
+    }
+    return $roles
+}
+
+function Get-InternetMessageId($Item) {
+    foreach ($tag in @('0x1035001F', '0x1035001E')) {
+        try {
+            $value = [string]$Item.PropertyAccessor.GetProperty('http://schemas.microsoft.com/mapi/proptag/' + $tag)
+            if ($value) { return $value }
+        } catch { }
+    }
+    return ''
+}
+
 function New-CandidateFilter([string]$After = '', [string]$Before = '', [bool]$AttachmentsOnly = $false) {
     $clauses = @('"http://schemas.microsoft.com/mapi/proptag/0x001A001F" LIKE ''IPM.Note%''')
     if ($AttachmentsOnly) { $clauses += '"http://schemas.microsoft.com/mapi/proptag/0x0E1B000B" = 1' }
@@ -181,7 +204,8 @@ function Get-SmtpAddress($Entry, [string]$Fallback) {
 }
 
 function Get-Message($Item, [bool]$IncludeBody, [int]$BodyLimit, [int]$BodyOffset = 0,
-                     [bool]$IncludeRecipientDetails = $true, [bool]$IncludeAttachmentNames = $true) {
+                     [bool]$IncludeRecipientDetails = $true, [bool]$IncludeAttachmentNames = $true,
+                     [hashtable]$FolderRoles = @{}) {
     $recipients = @()
     if ($IncludeRecipientDetails) {
         for ($n = 1; $n -le [Math]::Min(200, $Item.Recipients.Count); $n++) {
@@ -198,11 +222,17 @@ function Get-Message($Item, [bool]$IncludeBody, [int]$BodyLimit, [int]$BodyOffse
     }
     $senderAddress = [string]$Item.SenderEmailAddress
     if ([string]$Item.SenderEmailType -eq 'EX') { $senderAddress = Get-SmtpAddress $Item.Sender $senderAddress }
+    $headerId = Get-InternetMessageId $Item
+    $headerTruncated = $headerId.Length -gt 4096
+    if ($headerTruncated) { $headerId = $headerId.Substring(0, 4096) }
+    $folderRole = $FolderRoles[[string]$Item.Parent.EntryID]
+    if (-not $folderRole) { $folderRole = 'other' }
     $message = [ordered]@{ id = [string]$Item.EntryID; conversation_id = [string]$Item.ConversationID
         date = $Item.ReceivedTime.ToUniversalTime().ToString('o'); subject = [string]$Item.Subject
+        date_basis = 'received_time'; message_id_header = $headerId; message_id_header_truncated = $headerTruncated
         sender = ([string]$Item.SenderName + ' <' + $senderAddress + '>')
         recipients = $recipients -join '; '; folder_id = [string]$Item.Parent.EntryID
-        folder_name = [string]$Item.Parent.Name; attachment_names = $attachments
+        folder_name = [string]$Item.Parent.Name; folder_role = $folderRole; attachment_names = $attachments
         recipient_addresses_included = $IncludeRecipientDetails; attachment_names_included = $IncludeAttachmentNames
         has_attachments = ($Item.Attachments.Count -gt 0)
         recipients_truncated = ($IncludeRecipientDetails -and $Item.Recipients.Count -gt 200)
@@ -290,15 +320,17 @@ function Invoke-OutlookRequest($Request) {
     $folders = @(Get-ScopedFolders $chosen.store)
     $folderIds = New-Object 'System.Collections.Generic.HashSet[string]'
     foreach ($folder in $folders) { [void]$folderIds.Add([string]$folder.EntryID) }
+    $folderRoles = Get-FolderRoles $chosen.store $folderIds
     if ($Request.operation -eq 'status') {
         $newest = @(Get-Candidates $folders 1 '') | Select-Object -First 1
         return @{ configured = $true; account = $chosen.address; outlook_version = [string]$application.Version
             offline = [bool]$session.Offline; latest_message_date = $newest.date
-            folders = @($folders | ForEach-Object { @{ id = [string]$_.EntryID; name = [string]$_.Name; folder_items = [int]$_.Items.Count } }) }
+            folders = @($folders | ForEach-Object { @{ id = [string]$_.EntryID; name = [string]$_.Name; folder_items = [int]$_.Items.Count
+                role = $(if ($folderRoles.ContainsKey([string]$_.EntryID)) { $folderRoles[[string]$_.EntryID] } else { 'other' }) } }) }
     }
     if ($Request.operation -eq 'read') {
         $item = Get-ScopedItem $session $chosen.store $folderIds $Request.message_id
-        $message = Get-Message $item $true ([int]$Request.max_characters) ([int]$Request.body_offset)
+        $message = Get-Message $item $true ([int]$Request.max_characters) ([int]$Request.body_offset) $true $true $folderRoles
         if ($Request.expected_body_sha256 -and $message.body_sha256 -cne $Request.expected_body_sha256) { throw 'body_changed' }
         return @{ account = $chosen.address; message = $message }
     }
@@ -324,7 +356,7 @@ function Invoke-OutlookRequest($Request) {
         $examined++
         $item = Get-ScopedItem $session $chosen.store $folderIds $candidate.id
         if ($Request.conversation_id -and [string]$item.ConversationID -cne $Request.conversation_id) { continue }
-        $messages += Get-Message $item ([bool]$Request.include_body) ([int]$Request.max_characters) 0 ([bool]$Request.include_recipient_details) ([bool]$Request.include_attachment_names)
+        $messages += Get-Message $item ([bool]$Request.include_body) ([int]$Request.max_characters) 0 ([bool]$Request.include_recipient_details) ([bool]$Request.include_attachment_names) $folderRoles
     }
     $progress = Get-ScanProgress $candidates.Count $offset $examined
     return @{ account = $chosen.address; messages = $messages; scanned_messages = $examined

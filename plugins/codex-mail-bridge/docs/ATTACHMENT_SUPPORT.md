@@ -1,6 +1,6 @@
 # Original attachment handoff
 
-Version 0.8.1 retains the original-file handoff introduced in 0.4.0. It supports
+Version 0.9.0 retains the original-file handoff introduced in 0.4.0. It supports
 Thunderbird local MIME caches and classic Outlook by-value attachments. There are
 six attachment operations, for 19 local CLI operations in total; no MCP server is used.
 The bridge does not parse PDF, Word, Excel, archives or other document contents,
@@ -51,6 +51,17 @@ OS locking serializes export and cleanup across processes.
 Run sequentially, consume each batch, then `--release <export_id>` for each finished
 file. The CLI never recursively deletes arbitrary paths, and refuses/skips linked
 export roots or children. Locked files or no later cleanup can leave copies.
+
+Version comparisons should retain the receipt's client, message ID, attachment ID,
+original name, bytes and SHA-256 alongside the search metadata. Names and delivery
+dates alone do not identify revisions. A verified host copy under a private task
+directory can support longer analysis; it is outside bridge export cleanup.
+
+TNEF listings/receipts include a format hint and `container_members_listed:false`.
+The bridge transfers winmail.dat as an original without expanding it. An available
+authorized host decoder may inspect selected inner files; no decoder is installed
+or executed by the bridge. Metadata filename search cannot see container members.
+See [agent workflows](AGENT_WORKFLOWS.md) for comparisons and edit-mark handling.
 
 The mailbox remains read-only. Selection changes only private bridge settings;
 get creates selected original copies. Switching accounts cannot recall previously
