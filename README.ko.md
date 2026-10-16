@@ -79,10 +79,13 @@ Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션�
 첨부파일 공급자와 설치된 호스트의 전체 흐름 검증은 아직 남아 있습니다.
 소스는 MIT 라이선스이며 공개 디렉터리의 승인과 별개입니다.
 
-공개 제출 ZIP에는 MCP·앱 연결·훅 설정이 없습니다.
-로컬 실행이 필수임을 `requires_local_executor:true`로 정직하게 선언합니다.
-OpenAI의 데스크톱 전용 스킬 제출 경로를 따르며, 제출 조직 자격이나 심사 통과를
-보장하지 않습니다. [제출 준비](docs/SUBMISSION.md)
+**현재 ZIP은 로컬 데스크톱 배포용이며, OpenAI 디렉터리의 신규 접수 가능 여부는
+확인되지 않았습니다.** MCP 없는 패키지 형식이 문서에 있다는 사실이 현재 신규
+제출을 받는다는 뜻은 아닙니다. 최신 가이드라인이나 포털에 스킬 전용 제출을
+받지 않는다고 안내되어 있다면 이 패키지로 공개 심사를 진행할 수 없습니다.
+코드나 ZIP 변경으로 접수 정책을 우회할 수 없습니다. 먼저 현재 접수 여부를
+확인해야 합니다. 로컬 실행 필수 선언은 그대로 유지합니다.
+[제출 상태](docs/SUBMISSION.md) · [공식 가이드라인](https://developers.openai.com/plugins/plugin-guidelines)
 
 [지원](docs/support.md) · [개인정보](docs/privacy.md) · [이용약관](docs/terms.md)
 

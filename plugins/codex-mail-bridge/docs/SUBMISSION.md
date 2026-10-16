@@ -1,8 +1,25 @@
 # OpenAI directory preparation
 
-Mail Bridge · Cyp Soft · version 0.7.0
+Mail Bridge · Cyp Soft · version 0.7.1
 
-## Package path
+## Intake status: unconfirmed
+
+This ZIP is a local desktop distribution artifact, not proof of an available
+public submission path. A documented package format, successful ZIP validation
+or a working local skill does not establish current intake eligibility.
+
+If the current [plugin guidelines](https://developers.openai.com/plugins/plugin-guidelines)
+or portal state that new skills-only submissions are not being accepted, stop
+the directory submission workflow. Removing MCP does not override an intake
+closure. Obtain confirmation that new desktop skills-only submissions are being
+accepted for the intended organization before any review submission. A support
+inquiry is not approval. No current intake, exception or reopening date is claimed.
+
+Local installation/source distribution remains separate from the OpenAI Directory.
+The existing skill/CLI architecture is retained for local use; no placeholder
+remote server or hidden MCP process is introduced to change its classification.
+
+## Package format
 
 The plugin is now **skills only, Desktop only**: a packaged skill invokes a
 one-shot local CLI against Thunderbird or running classic Outlook. The ZIP has
@@ -11,8 +28,8 @@ network listener or hidden MCP launch. It honestly declares
 `extensions.com.openai.requires_local_executor:true`; the compatibility manifest
 has the same requirement. Local execution is necessary to access this PC's mail.
 
-This follows the official [plugins without an MCP server](https://developers.openai.com/plugins/deploy/desktop-only)
-path. No MCP URL, server domain verification or MCP connection setup applies to
+The package format is described under [plugins without an MCP server](https://developers.openai.com/plugins/deploy/desktop-only)
+section. No MCP URL, server domain verification or MCP connection setup applies to
 this package. Skills-only plugins do not require MCP review cases, MCP demo or
 MCP reviewer credentials. Prior MCP review cases remain in versioned Git history;
 unrun cases are not represented as current live evidence.
@@ -27,19 +44,21 @@ that this source change guarantees admission. See the
 
 ## Prepared source and ZIP
 
-Portable and compatibility identities are synchronized at 0.7.0. The About text
+Portable and compatibility identities are synchronized at 0.7.1. The About text
 states the purpose: GPT references mail from a **locally signed-in Thunderbird or
-classic Outlook account**, with Office 2019 support and no Microsoft 365 requirement.
+classic Outlook account**, including Office 2019.
 It covers local-session/runtime prerequisites, account choice, targeted and broad
 queries, original-file delivery, AI data flow and limitations. English/Korean
 listing, independent icon, free/no commerce, all available countries, support,
 privacy and terms URLs are retained. The developer name displayed by the portal
 is determined by its selected verified identity.
 
-## Portal handoff
+## Portal handoff only after intake is confirmed
+
+Do not begin this sequence while new skills-only intake is closed or unconfirmed.
 
 1. Select the intended organization and verified developer identity.
-2. Upload the **0.7.0 plugin ZIP** as a new package version of the existing draft.
+2. Upload the **current plugin ZIP** as a new package version of the existing draft.
    The source ZIP is for developers. No online upload is performed by packaging.
 3. Confirm the saved About, version and Desktop only restriction. Inspect the saved
    draft for stale MCP/app bindings; a previous 0.6.0 draft can retain server state.

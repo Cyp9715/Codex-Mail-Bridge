@@ -155,12 +155,14 @@ uses the Python standard library and existing Windows COM adapter. See
 [verification evidence](plugins/codex-mail-bridge/docs/REVIEW.md). Live native
 Outlook attachments and installed-host workflows remain unverified in this release.
 
-The source is MIT licensed. Public directory distribution is a separate OpenAI
-review. The 0.7.0 upload ZIP has no MCP/app/hook configuration and honestly declares
-`requires_local_executor:true`. OpenAI documents a desktop skills-only path, but
-host/organization eligibility and approval are not guaranteed. See
-[submission preparation](docs/SUBMISSION.md) and the
-[official desktop-only instructions](https://developers.openai.com/plugins/deploy/desktop-only).
+The source is MIT licensed. **This ZIP is for local desktop distribution;
+new OpenAI Directory submission availability is unconfirmed.** A documented
+desktop skills-only package format does not establish that new submissions are
+currently being accepted. If the current guidelines or portal say skills-only
+submissions are not accepted, this package cannot override that restriction.
+Confirm current intake before attempting public review; keep local execution
+honestly declared. See [submission status](docs/SUBMISSION.md) and the
+[official guidelines](https://developers.openai.com/plugins/plugin-guidelines).
 
 [Support](docs/support.md) · [Privacy](docs/privacy.md) · [Terms](docs/terms.md)
 

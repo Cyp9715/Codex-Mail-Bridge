@@ -1,6 +1,6 @@
 # Local CLI contract
 
-Version 0.7.0 has no MCP transport, background process or network listener.
+Version 0.7.1 has no MCP transport, background process or network listener.
 The packaged skill invokes one local operation per command. It requires a local
 desktop host with command/file permission, Python 3.10+, and a signed-in mail client.
 

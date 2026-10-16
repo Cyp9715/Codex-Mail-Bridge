@@ -66,7 +66,7 @@ with tempfile.TemporaryDirectory(dir=root / "work", prefix="synthetic-handoff-")
             argument_path.write_text(json.dumps(arguments), encoding="utf-8")
             return command("--call", name, "--arguments-file", str(argument_path))
 
-        assert command("--version")["version"] == "0.7.0"
+        assert command("--version")["version"] == "0.7.1"
         found = tool("thunderbird_search_attachments", {"filename": "handoff.docx", "after": "2026-10-01T00:00:00Z"})
         assert [m["id"] for m in found["messages"]] == [101]
         listing = tool("thunderbird_list_attachments", {"message_id": 101})

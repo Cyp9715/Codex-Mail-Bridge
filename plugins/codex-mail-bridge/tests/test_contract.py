@@ -93,7 +93,7 @@ class ContractTests(unittest.TestCase):
     def test_version_and_package_have_no_mcp_server(self):
         process, value = self.run_cli('--version')
         self.assertEqual(process.returncode, 0)
-        self.assertEqual(value['result']['version'], '0.7.0')
+        self.assertEqual(value['result']['version'], '0.7.1')
         self.assertIs(value['result']['mcp_server'], False)
         for name in ('mcp.json', '.mcp.json', '.app.json', 'hooks/hooks.json'):
             self.assertFalse((PLUGIN / name).exists())

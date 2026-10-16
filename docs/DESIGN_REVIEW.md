@@ -1,4 +1,4 @@
-# Plugin architecture review for 0.7.0
+# Plugin architecture review for 0.7.1
 
 The current plugin is a desktop skill plus a one-shot local CLI. It needs no MCP
 server or remote backend because its source is the already signed-in desktop mail
@@ -16,8 +16,10 @@ action; no base64, resource protocol, document parsing or execution remains.
 No global background process, listener, lifecycle hook or mail credentials are added.
 
 The manifests honestly mark local execution as required and contain no MCP/app
-configuration. This follows OpenAI's documented desktop skills-only path and
-removes the command-MCP component that caused the reported submission finding.
+configuration. The package format is documented for desktop skills-only plugins and removes
+the command-MCP component that caused the reported finding. This does not establish
+that new skills-only submissions are currently accepted. A current intake closure
+applies regardless of the local implementation; confirm eligibility before review.
 Directory eligibility, scan results and review approval are external states and
 cannot be guaranteed by source changes. Public metadata describes the real data
 flow: local signed-in Thunderbird/classic Outlook mail becomes reference material

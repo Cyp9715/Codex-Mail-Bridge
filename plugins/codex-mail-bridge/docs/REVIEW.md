@@ -1,6 +1,6 @@
 # Mail Bridge verification evidence
 
-Version 0.7.0 · synthetic public data only
+Version 0.7.1 · synthetic public data only
 
 ## Architecture and evidence
 
@@ -55,6 +55,8 @@ unrelated data. A screenshot or script is not a verified recording.
 
 ## Submission state
 
-Source and a skills-only desktop ZIP are prepared. No organization eligibility,
+Source and a local desktop ZIP are prepared. New skills-only directory intake
+is unconfirmed; do not treat working code or ZIP validation as acceptance. If
+current guidelines/portal say intake is closed, public submission must wait. No organization eligibility,
 developer verification, saved portal state, submission, approval or publication
 is claimed. See [submission preparation](SUBMISSION.md).
