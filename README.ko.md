@@ -10,7 +10,7 @@
 창이 닫혀 있어도 기존 로컬 색인과 캐시를 읽을 수 있습니다.
 플러그인이 로그인하거나 암호를 요청하지 않습니다.
 
-현재 버전은 **0.9.1**이며 개발자 표기는 **Cyp**입니다.
+현재 버전은 **0.9.2**이며 개발자 표기는 **Cyp**입니다.
 
 ## 동작 방식
 
@@ -66,16 +66,33 @@ Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 �
 
 ## 설치와 검증
 
-저장소의 `.agents/plugins/marketplace.json` 및 `plugins/codex-mail-bridge`를
-호스트의 지원되는 로컬 플러그인 설치 흐름으로 사용하세요.
-설치·업데이트 후 새 로컬 대화에서 Mail Bridge를 선택하세요.
-업데이트 후 설치본을 다시 불러와야 새 코드가 적용됩니다.
+GitHub Release에서 **codex-mail-bridge-0.9.2-local.zip**을 받아 계속 보관할
+폴더에 완전히 압축 해제한 뒤 Windows에서는 **install-local.cmd**를 실행하세요.
+또는 압축 해제한 폴더에서 `node scripts/install-local.cjs`를 실행할 수 있습니다.
+설치 도구는 Codex CLI로 로컬 마켓플레이스를 등록하고 플러그인을 설치한 뒤,
+설치된 버전과 파일을 확인합니다. 앱을 다시 시작하고 새 로컬 대화에서
+Mail Bridge를 선택하세요. [설치 안내](INSTALL.md)를 참고하세요.
+
+앱의 **새 플러그인 → ZIP 업로드**는 계정 서버로 패키지를 올리는 별도 경로입니다.
+일반적인 업로드 오류만으로 플러그인 손상이나 로컬 실행 불가를 단정할 수 없습니다.
+0.9.2의 로컬 설치는 이 업로드 경로를 사용하지 않으며, 계정 서버 오류 자체를
+수정했다고 주장하지 않습니다. 계정에 이미 플러그인이 있다면 같은 이름으로
+새로 생성하기보다 기존 플러그인의 업데이트 기능을 사용해야 합니다.
+
+설치 도구 없이 압축 해제한 폴더에서 실행할 수도 있습니다.
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.1
+codex plugin marketplace add .
+codex plugin add codex-mail-bridge@cyp-soft-local
 ```
 
-플러그인 목록에서 Cyp 로컬 마켓플레이스를 선택해 Mail Bridge를 설치하세요.
+Git으로 설치하려면 다음 명령을 실행하세요.
+
+```powershell
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.2
+codex plugin add codex-mail-bridge@cyp-soft-local
+```
+
 0.9.0은 본문을 읽지 않는 메타데이터 검색, 중복 후보 식별, 폴더 용도, 원본 출처
 정보와 대화·요일별 정리·문서 버전 비교 안내를 보강했습니다. Thunderbird의 오래된 mbox는 `cache_scan_offset`으로 이어서
 찾고 `cache_scan_bytes`로 탐색 범위를 넓힐 수 있습니다. Maildir도
@@ -91,7 +108,8 @@ Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션�
 있습니다. 필요한 명령의 스키마만 조회하고, 조건은 비공개 UTF-8 JSON 데이터
 파일로 전달합니다. [CLI 규약](docs/CLI.md)을 참고하세요.
 
-0.9.1 검증은 125개가 통과했고 기존 스크립트 정책으로 PowerShell 실행 검사 1개를 건너뛰었습니다.
+0.9.2 검증은 135개가 통과했고 기존 스크립트 정책으로 PowerShell 실행 검사 1개를 건너뛰었습니다.
+추가로 격리된 Codex 설정에서 배포 ZIP의 실제 설치·재설치·업데이트와 원본 첨부파일 전달을 검증했습니다.
 0.9.0 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의
 검색·본문 이어 읽기·대화·첨부 원본 전달을 확인했고, 표본 Outlook 메일의 읽음 상태도 유지됐습니다.
 실행 중인 Outlook의 COM 연결 보완도 유지합니다. 다른 PC·공급자와 새 설치본의

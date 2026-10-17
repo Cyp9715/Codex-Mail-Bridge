@@ -10,7 +10,7 @@ from publication_guard import content_findings, load_denylist, path_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "plugins/codex-mail-bridge"
-TEXT_SUFFIXES = {".py", ".cjs", ".ps1", ".json", ".md"}
+TEXT_SUFFIXES = {".py", ".cjs", ".cmd", ".ps1", ".json", ".md"}
 
 
 def validate_file(path, data=None):
@@ -90,6 +90,27 @@ def validate_manifests(manifest, overlay):
     return version
 
 
+def validate_runtime_version(source, version):
+    tree = ast.parse(source)
+    versions = [node.value.value for node in tree.body
+                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+                and any(isinstance(target, ast.Name) and target.id == "VERSION"
+                        for target in node.targets)]
+    if versions != [version]:
+        raise ValueError("CLI runtime and manifest version mismatch")
+
+
+def validate_marketplace(catalog):
+    entries = catalog.get("plugins", [])
+    if catalog.get("name") != "cyp-soft-local" or len(entries) != 1:
+        raise ValueError("Unexpected local marketplace identity")
+    entry = entries[0]
+    if (entry.get("name") != "codex-mail-bridge"
+            or entry.get("source") != {"source": "local", "path": "./plugins/codex-mail-bridge"}
+            or entry.get("policy") != {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}):
+        raise ValueError("Local marketplace must resolve the packaged plugin")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=ROOT / "outputs")
@@ -98,6 +119,8 @@ def main():
     manifest = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))
     overlay = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
     version = validate_manifests(manifest, overlay)
+    validate_runtime_version((PLUGIN / "server/bridge.py").read_text(encoding="utf-8"), version)
+    validate_marketplace(json.loads((ROOT / ".agents/plugins/marketplace.json").read_text(encoding="utf-8")))
     # Include only known component directories and explicit top-level files.
     for name in ("mcp.json", ".mcp.json", ".app.json", "hooks/hooks.json"):
         if (PLUGIN / name).exists():
@@ -109,15 +132,19 @@ def main():
         plugin_files += sorted(p for p in (PLUGIN / name).rglob("*")
                                if p.is_file() and "__pycache__" not in p.parts)
     plugin_files = sorted(set(plugin_files))
-    source_files = plugin_files + [ROOT / name for name in (
+    installer_files = [ROOT / name for name in (
+        "INSTALL.md", "install-local.cmd", "scripts/install-local.cjs", ".agents/plugins/marketplace.json")]
+    source_files = plugin_files + installer_files + [ROOT / name for name in (
         "README.md", "README.ko.md", "AGENTS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", ".gitignore",
         ".gitattributes", ".agents/plugins/marketplace.json", "scripts/package.py", "scripts/publication_guard.py",
-        "scripts/run_publication_guard.cjs", "scripts/qa_host_handoff.py")]
+        "scripts/run_publication_guard.cjs", "scripts/qa_host_handoff.py", "scripts/verify_local_install.py")]
     source_files += sorted((ROOT / ".githooks").glob("*"))
-    source_files += sorted((ROOT / "scripts/tests").glob("test_*.py"))
+    source_files += sorted((ROOT / "scripts/tests").glob("test_*"))
     source_files += sorted((ROOT / "docs").glob("*.md"))
     results = [package(args.output / f"codex-mail-bridge-{version}-plugin.zip",
                        [(p, p.relative_to(PLUGIN).as_posix()) for p in plugin_files]),
+               package(args.output / f"codex-mail-bridge-{version}-local.zip",
+                       [(p, p.relative_to(ROOT).as_posix()) for p in sorted(set(plugin_files + installer_files))]),
                package(args.output / f"codex-mail-bridge-{version}-source.zip",
                        [(p, p.relative_to(ROOT).as_posix()) for p in sorted(set(source_files))])]
     print(json.dumps({"version": version, "artifacts": results}, indent=2))

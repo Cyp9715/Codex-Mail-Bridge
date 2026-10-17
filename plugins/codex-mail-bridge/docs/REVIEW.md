@@ -1,11 +1,12 @@
 # Mail Bridge verification evidence
 
-Version 0.9.1 · synthetic public data only
+Version 0.9.2 · synthetic public data only
 
-The attribution patch ran 104 plugin cases: 103 passed and one PowerShell runtime
-case was skipped under the existing script policy. All 22 release/publication
-cases passed. The extracted release passed synthetic CLI and original-file
-handoff checks. No live mailbox checks were repeated for this metadata patch.
+The installation patch ran 104 plugin cases: 103 passed and one PowerShell
+runtime case was skipped under the existing script policy. All 24 release tests
+and eight installer tests passed. Actual installation from the local ZIP is
+verified separately from generic account-upload errors. No live mailbox checks
+were repeated for this patch. See the current release validation scope below.
 
 The local skill uses 19 one-shot CLI operations with schemas loaded on demand.
 See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.

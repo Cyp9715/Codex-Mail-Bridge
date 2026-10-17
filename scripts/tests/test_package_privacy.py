@@ -89,6 +89,18 @@ class ManifestTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "skills-only"):
                 builder.validate_manifests(manifest, self.overlay)
 
+    def test_stale_runtime_cannot_be_packaged(self):
+        with self.assertRaisesRegex(ValueError, "runtime.*mismatch"):
+            builder.validate_runtime_version('VERSION = "0.1.0"', "0.2.0")
+        builder.validate_runtime_version('VERSION = "0.2.0"', "0.2.0")
+
+    def test_marketplace_must_resolve_the_packaged_local_plugin(self):
+        catalog = json.loads((builder.ROOT / ".agents/plugins/marketplace.json").read_text(encoding="utf-8"))
+        builder.validate_marketplace(catalog)
+        catalog["plugins"][0]["source"]["path"] = "./missing-plugin"
+        with self.assertRaisesRegex(ValueError, "resolve"):
+            builder.validate_marketplace(catalog)
+
 
 if __name__ == "__main__":
     unittest.main()

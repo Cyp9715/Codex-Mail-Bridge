@@ -1,7 +1,7 @@
-# Mail Bridge 0.9.1 local architecture review
+# Mail Bridge 0.9.2 local architecture review
 
-Reviewed 2026-10-18. Version 0.9.1 updates developer attribution to Cyp;
-runtime mail access is unchanged. Local distribution and useful mail access are the release
+Reviewed 2026-10-18. Version 0.9.2 adds a verified local installation workflow;
+developer attribution remains Cyp and runtime mail access is unchanged. Local distribution and useful mail access are the release
 criteria; public-directory submission is not part of this release.
 
 ## Execution choice

@@ -1,6 +1,6 @@
 {
   "name": "codex-mail-bridge",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Find and reference locally signed-in Thunderbird or classic Outlook mail, including Office 2019. Retrieve relevant messages and original files for GPT through a local skill and CLI.",
   "author": {
     "name": "Cyp"

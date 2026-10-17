@@ -1,4 +1,4 @@
-# Mail Bridge 0.9.1
+# Mail Bridge 0.9.2
 
 Let GPT find and reference email from Thunderbird or classic Outlook already
 signed in on this computer, including Office 2019. Sign in and sync needed mail
@@ -12,19 +12,24 @@ mail credentials, API key or downloaded runtime is required by the bridge.
 
 ## Install and update
 
-Register the Git source and install Mail Bridge from the Cyp local
-marketplace in the host plugin browser:
+Download **codex-mail-bridge-0.9.2-local.zip**, extract it into a permanent folder,
+and run its **install-local.cmd** on Windows or `node scripts/install-local.cjs`.
+The installer verifies the installed version and files. The source ZIP also
+includes this installer. Restart the app and select Mail Bridge in a new local
+conversation after installation or updates.
+
+For a Git installation:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.1
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.2
+codex plugin add codex-mail-bridge@cyp-soft-local
 ```
 
-For ZIP installation, use the source ZIP containing the local marketplace.
-After extracting it, run `codex plugin marketplace add .` from its root and
-`codex plugin add codex-mail-bridge@cyp-soft-local`. The plugin-only ZIP needs a
-host's supported package workflow. Preserve other marketplace entries. Reload/reinstall after an
-update and start a new local conversation. Editing source does not rewrite an
-installed plugin cache. Public-directory submission is not required.
+This plugin-only ZIP has no marketplace wrapper or installer. The desktop app's
+New Plugin archive upload sends it to the account service, which is a different
+workflow from local installation. Generic upload errors do not identify their
+cause; the local ZIP installs without that service. Existing account plugins
+should use their update workflow. Preserve other marketplace entries.
 
 Version 0.9.0 adds body-free metadata topic searches, scoped duplicate-candidate
 keys, configured folder roles and original-file provenance. Lazy task guides

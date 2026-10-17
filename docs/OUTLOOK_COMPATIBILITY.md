@@ -25,7 +25,7 @@ validation here. Outlook's provider may fetch remote data; offline-only behavior
 and live freshness are not promised. Read-only means the bridge performs no
 mailbox mutation, not that the Outlook application itself stops synchronizing.
 
-Version 0.9.1 retains metadata-first original-file access through a skill and local
+Version 0.9.2 retains metadata-first original-file access through a skill and local
 CLI, with no MCP transport. Generated-file/CLI and synthetic COM tests cover the
 adapters. Extracted ZIP CLI checks additionally passed with live Thunderbird
 and classic Outlook original-file exports; installed-host routing and other
