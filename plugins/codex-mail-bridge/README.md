@@ -1,4 +1,4 @@
-# Mail Bridge 0.9.2
+# Mail Bridge 0.9.3
 
 Let GPT find and reference email from Thunderbird or classic Outlook already
 signed in on this computer, including Office 2019. Sign in and sync needed mail
@@ -12,24 +12,19 @@ mail credentials, API key or downloaded runtime is required by the bridge.
 
 ## Install and update
 
-Download **codex-mail-bridge-0.9.2-local.zip**, extract it into a permanent folder,
-and run its **install-local.cmd** on Windows or `node scripts/install-local.cjs`.
-The installer verifies the installed version and files. The source ZIP also
-includes this installer. Restart the app and select Mail Bridge in a new local
-conversation after installation or updates.
+Upload **codex-mail-bridge-0.9.3-plugin.zip** in the desktop app's **New Plugin**
+dialog for a first installation. Open the registered Mail Bridge entry and select
+**Install plugin** if shown, then select it in a new local conversation.
+This archive is the complete plugin; no separate installer is required.
 
-For a Git installation:
+If Mail Bridge already exists, use its update/upload-new-version action where
+available. The reported creation failure was traced by the user to an existing
+same-name plugin. Keep `codex-mail-bridge` as the package identity. See
+[installation and troubleshooting](INSTALL.md) before replacing an existing entry.
 
-```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.2
-codex plugin add codex-mail-bridge@cyp-soft-local
-```
-
-This plugin-only ZIP has no marketplace wrapper or installer. The desktop app's
-New Plugin archive upload sends it to the account service, which is a different
-workflow from local installation. Generic upload errors do not identify their
-cause; the local ZIP installs without that service. Existing account plugins
-should use their update workflow. Preserve other marketplace entries.
+Both manifests and About credit **Cyp**. Account-hosted listings may receive a
+separate developer label from the host service. Package metadata does not change
+the creating account's identity.
 
 Version 0.9.0 adds body-free metadata topic searches, scoped duplicate-candidate
 keys, configured folder roles and original-file provenance. Lazy task guides

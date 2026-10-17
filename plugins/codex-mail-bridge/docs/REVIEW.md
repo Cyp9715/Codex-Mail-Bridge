@@ -1,12 +1,12 @@
 # Mail Bridge verification evidence
 
-Version 0.9.2 · synthetic public data only
+Version 0.9.3 · synthetic public data only
 
-The installation patch ran 104 plugin cases: 103 passed and one PowerShell
-runtime case was skipped under the existing script policy. All 24 release tests
-and eight installer tests passed. Actual installation from the local ZIP is
-verified separately from generic account-upload errors. No live mailbox checks
-were repeated for this patch. See the current release validation scope below.
+Version 0.9.3 clarifies plugin ZIP installation and existing-entry updates after
+the user identified a same-name creation conflict. Current package and regression
+results are recorded in [release validation](RELEASE_VALIDATION.md). Account-service
+upload and displayed developer identity are not certified by local CLI tests.
+No live mailbox checks are repeated for this packaging release.
 
 The local skill uses 19 one-shot CLI operations with schemas loaded on demand.
 See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.

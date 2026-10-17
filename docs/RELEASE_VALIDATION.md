@@ -1,45 +1,53 @@
-# Mail Bridge 0.9.2 release validation
+# Mail Bridge 0.9.3 release validation
 
-Validated October 18, 2026. This release adds a local installation ZIP and a
-Codex CLI installer. Both manifests and the CLI runtime report 0.9.2. Developer
-attribution remains Cyp; existing marketplace identity and account settings paths
-are preserved. Mail retrieval behavior is unchanged.
+Validated October 18, 2026. This release makes the standard plugin ZIP the primary
+artifact. Both manifests and the CLI runtime report 0.9.3. Both author/developer
+fields credit Cyp, and About makes that credit explicit. Mail retrieval, package
+identity and private selection-settings paths are unchanged.
 
-## Installation regression and evidence
+## Installation finding
 
-The reported desktop New Plugin dialog returned a generic archive-upload error.
-The published 0.9.0 and 0.9.1 plugin ZIPs have the same 43 file paths, compression
-methods and entry permission metadata. The skill and retrieval implementation are
-unchanged apart from the version constant. The 0.9.1 package installs successfully
-through the local Codex marketplace workflow. No server response identifying the
-reported upload failure was available, so this release does not attribute it to a
-specific package defect, duplicate name, account restriction, or service outage.
+The user confirmed that the desktop **New Plugin** creation failure occurred when
+an existing plugin had the same name. This is an existing-entry conflict in the
+reported account workflow, not evidence that the Cyp credit is forbidden. Use the
+existing plugin's update action rather than creating another same-name plugin.
+The new installation guide describes first installation, updates, and precautions
+when a host requires explicit replacement.
 
-The new local ZIP contains the marketplace, complete plugin, Windows helper and
-Node installer. It avoids the account-upload dialog. Preflight is read-only;
-installation uses supported marketplace/add commands and verifies installed files.
-Tests cover missing files, unsupported CLI, wrong source/version, stale installed
-content and executable selection. Packaging also rejects runtime-version drift
-and an invalid marketplace target. The original plugin-only ZIP remains available.
+The 0.9.0 and 0.9.1 release ZIPs had the same 43 paths and archive structure, and
+their mail implementation differed only in the version constant. The 0.9.3 plugin
+ZIP adds its installation guide. No separate local-installer ZIP is produced.
+The optional marketplace helpers remain in developer source only.
 
-## Checks completed for 0.9.2
+The desktop client renders the developer label provided by its plugin service.
+A creating account's display label can therefore differ from source attribution.
+Changing account identity or promising an existing record will refresh is outside
+this package. The deleted reported entry could not be inspected server-side.
 
-- Plugin suite: 104 executed, 103 passed, one PowerShell runtime case skipped under
-  the existing script policy. No policy was changed or bypassed.
-- Release/publication suite: all 24 passed.
-- Installer suite: all 8 passed.
-- Release archives: exact source bytes, manifests, local links and hashes passed.
-- Integration: installation, reinstallation and an in-place upgrade from 0.9.1
-  passed from the extracted local ZIP in isolated Codex settings. Cached files,
-  Windows helper preflight, paths containing spaces, and synthetic original-file
-  retrieval/hash/release checks passed. The test did not change the active install.
-- Codex rejects a second source folder for an existing marketplace name. Updates
-  must use the same registered folder; the helper preserves a conflicting source
-  and reports the CLI diagnostic. No existing marketplace is silently removed.
+## Checks for 0.9.3
 
-Live mailbox checks were not repeated for this installation patch. Automatic
-skill routing in a new desktop conversation and account ZIP upload remain
-unverified. Earlier live runtime evidence is retained separately below.
+- Plugin suite: 104 cases, 103 passed and one PowerShell runtime case skipped
+  under the existing script policy. No policy was changed or bypassed.
+- Release/publication suite: all 26 passed, including author/developer consistency.
+- Optional source-only installer suite: all eight passed.
+- Both archives passed integrity and source-byte checks. The plugin archive has
+  44 files, its manifests and skill at the plugin root, and no marketplace wrapper
+  or separate installer. Relative documentation links resolve inside the package.
+- Isolated source-marketplace installation, reinstallation and an upgrade from
+  0.9.1 passed. Version/file checks and synthetic original-file retrieval, byte
+  hashes and explicit export release passed. The active user install was untouched.
+
+Account-service creation/update and automatic skill routing in a new desktop
+conversation are separate host checks. No new hosted upload or live mailbox test
+is claimed for this packaging release.
+
+## Prior 0.9.2 validation record
+
+The 0.9.2 optional local-marketplace workflow passed 103 of 104 plugin cases (one
+PowerShell case skipped under the existing policy), 24 release tests and eight
+installer tests. Isolated local installation, reinstallation, upgrade, source
+byte checks and synthetic original-file handoff passed. Those tests verified a
+different installation path and did not fix the account-service creation error.
 
 ## Prior 0.9.0 validation record
 
@@ -97,18 +105,8 @@ or OpenAI directory approval is claimed.
 
 ## Download and install
 
-For desktop use, download **codex-mail-bridge-0.9.2-local.zip**, extract it into a
-folder you will keep, and run **install-local.cmd** on Windows or
-`node scripts/install-local.cjs` from that folder. The **source.zip** includes the
-same installer plus developer source. Restart the app and use a new local chat.
+Use **codex-mail-bridge-0.9.3-plugin.zip** in the desktop app. The source archive is
+for development and must not be uploaded as one plugin. Verify release archives
+with **SHA256SUMS**. See [installation and updates](../INSTALL.md).
 
-The **plugin.zip** is a single plugin for compatible import workflows; it does
-not contain a marketplace. Local/source ZIPs are not account-upload packages.
-Use the release SHA256SUMS to verify downloads. Git installation is also available:
-
-```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.2
-codex plugin add codex-mail-bridge@cyp-soft-local
-```
-
-Local installation does not require OpenAI public-directory submission.
+Local plugin use does not require OpenAI public-directory approval.

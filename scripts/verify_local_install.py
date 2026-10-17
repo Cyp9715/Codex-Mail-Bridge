@@ -24,12 +24,18 @@ def main():
         parser.error("An existing Codex CLI and Node.js are required")
     plugin = ROOT / "plugins/codex-mail-bridge"
     version = json.loads((plugin / "plugin.json").read_text(encoding="utf-8"))["version"]
-    for kind, source in [("plugin", plugin), ("local", ROOT), ("source", ROOT)]:
+    for kind, source in [("plugin", plugin), ("source", ROOT)]:
         with zipfile.ZipFile(args.archives / f"codex-mail-bridge-{version}-{kind}.zip") as archive:
             assert archive.testzip() is None
             for name in archive.namelist():
                 assert not name.startswith(("/", "\\")) and ".." not in Path(name).parts
                 assert archive.read(name) == (source / name).read_bytes(), name
+            if kind == "plugin":
+                assert "plugin.json" in archive.namelist()
+                assert "INSTALL.md" in archive.namelist()
+                assert "skills/mail-bridge/SKILL.md" in archive.namelist()
+                assert not any(name.startswith(("plugins/", ".agents/")) for name in archive.namelist())
+                assert "install-local.cmd" not in archive.namelist()
     with tempfile.TemporaryDirectory(prefix="mail-bridge-release-") as temporary:
         temporary = Path(temporary)
         source = temporary / "source with spaces"
@@ -45,7 +51,7 @@ def main():
             return json.loads(result.stdout) if expect_json else result.stdout
 
         def extract():
-            with zipfile.ZipFile(args.archives / f"codex-mail-bridge-{version}-local.zip") as archive:
+            with zipfile.ZipFile(args.archives / f"codex-mail-bridge-{version}-source.zip") as archive:
                 archive.extractall(source)
 
         extract()

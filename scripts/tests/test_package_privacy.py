@@ -77,6 +77,17 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "mismatch"):
             builder.validate_manifests(self.manifest, self.overlay)
 
+    def test_stale_compatibility_author_cannot_be_packaged(self):
+        self.overlay["author"]["name"] = "Different author"
+        with self.assertRaisesRegex(ValueError, "author mismatch"):
+            builder.validate_manifests(self.manifest, self.overlay)
+
+    def test_conflicting_developer_attribution_cannot_be_packaged(self):
+        self.manifest["extensions"]["com.openai"]["interface"]["developerName"] = "Different author"
+        self.overlay["interface"]["developerName"] = "Different author"
+        with self.assertRaisesRegex(ValueError, "attribution must match"):
+            builder.validate_manifests(self.manifest, self.overlay)
+
     def test_local_requirement_cannot_be_hidden(self):
         self.manifest["extensions"]["com.openai"]["requires_local_executor"] = False
         with self.assertRaisesRegex(ValueError, "desktop"):

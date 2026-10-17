@@ -70,6 +70,12 @@ def validate_manifests(manifest, overlay):
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("Expected semantic version")
     interface = manifest["extensions"]["com.openai"]["interface"]
+    author = manifest.get("author")
+    if not isinstance(author, dict) or author != overlay.get("author"):
+        raise ValueError("Portable/compatibility author mismatch")
+    publisher = author.get("name")
+    if not isinstance(publisher, str) or not publisher.strip() or publisher != interface.get("developerName"):
+        raise ValueError("Author and developer attribution must match")
     if interface != overlay.get("interface") or manifest.get("description") != overlay.get("description"):
         raise ValueError("Portable/compatibility listing mismatch")
     openai = manifest["extensions"]["com.openai"]
@@ -127,7 +133,7 @@ def main():
             raise ValueError("The skills-only release contains a server/app/hook configuration")
     plugin_files = [PLUGIN / name for name in (
         "plugin.json", ".codex-plugin/plugin.json",
-        "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md")]
+        "README.md", "INSTALL.md", "LICENSE", "THIRD_PARTY_NOTICES.md")]
     for name in ("server", "scripts", "skills", "tests", "assets", "docs"):
         plugin_files += sorted(p for p in (PLUGIN / name).rglob("*")
                                if p.is_file() and "__pycache__" not in p.parts)
@@ -143,8 +149,6 @@ def main():
     source_files += sorted((ROOT / "docs").glob("*.md"))
     results = [package(args.output / f"codex-mail-bridge-{version}-plugin.zip",
                        [(p, p.relative_to(PLUGIN).as_posix()) for p in plugin_files]),
-               package(args.output / f"codex-mail-bridge-{version}-local.zip",
-                       [(p, p.relative_to(ROOT).as_posix()) for p in sorted(set(plugin_files + installer_files))]),
                package(args.output / f"codex-mail-bridge-{version}-source.zip",
                        [(p, p.relative_to(ROOT).as_posix()) for p in sorted(set(source_files))])]
     print(json.dumps({"version": version, "artifacts": results}, indent=2))

@@ -23,7 +23,7 @@ No real accounts, addresses, folder paths, store/message IDs, or mail bodies are
 included in the distributable. Public screenshots/recordings must use isolated
 synthetic data. Report compatibility issues with redacted diagnostics only.
 
-Version 0.9.2 retains metadata-first original-file access through a skill and local
+Version 0.9.3 retains metadata-first original-file access through a skill and local
 CLI, with no MCP transport. Generated-file/CLI and synthetic COM tests cover the
 adapters. Extracted ZIP CLI checks additionally passed with live Thunderbird
 and classic Outlook original-file exports; installed-host routing and other

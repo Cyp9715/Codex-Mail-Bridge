@@ -1,6 +1,6 @@
 # Mail Bridge agent workflows
 
-Version 0.9.2 keeps 19 local operations. The bridge supplies selected mail evidence
+Version 0.9.3 keeps 19 local operations. The bridge supplies selected mail evidence
 and original files; the host agent performs reasoning and document analysis. Load
 only the requested command schema and relevant skill reference, not every tool's
 schema, every body or every attachment.

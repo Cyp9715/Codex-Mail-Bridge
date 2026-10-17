@@ -1,8 +1,9 @@
-# Mail Bridge 0.9.2 local architecture review
+# Mail Bridge 0.9.3 local architecture review
 
-Reviewed 2026-10-18. Version 0.9.2 adds a verified local installation workflow;
-developer attribution remains Cyp and runtime mail access is unchanged. Local distribution and useful mail access are the release
-criteria; public-directory submission is not part of this release.
+Reviewed 2026-10-18. Version 0.9.3 restores the plugin ZIP as the primary download
+and documents existing-plugin updates after a user-confirmed same-name creation
+conflict. Both manifests credit Cyp; runtime mail access is unchanged. Local
+plugin use is the release target; public-directory submission is not part of it.
 
 ## Execution choice
 

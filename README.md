@@ -12,14 +12,14 @@ Keep classic Outlook running in that signed-in profile.** Thunderbird can read
 an existing local index/cache with its window closed. The bridge does not log in
 or request passwords.
 
-Version 0.9.2 uses a **skill and one-shot local scripts**. No MCP server, network
+Version 0.9.3 uses a **skill and one-shot local scripts**. No MCP server, network
 listener, Cyp backend or cloud mail connection is needed. The installed
 skill invokes only the requested local operation and receives compact JSON.
 Retrieved account details, mail text and files opened by the AI host can be sent
 to OpenAI for the requested task. Local access does not mean offline GPT processing.
 
-Version 0.9.2 adds a verified local installer and a dedicated desktop installation ZIP.
-Developer attribution remains **Cyp**.
+Version 0.9.3 makes the **plugin ZIP** the primary download and clarifies how to
+update an existing same-name plugin. Package developer attribution remains **Cyp**.
 
 ## Supported environment
 
@@ -36,35 +36,24 @@ delivery stores and additional archive stores are rejected. Local indexes/caches
 may be incomplete or stale; Outlook's own provider may fetch data normally.
 The bridge does not force sync or weaken client or script security policies.
 
-## Local installation and use
+## Install and update the plugin
 
-Download **codex-mail-bridge-0.9.2-local.zip** from the GitHub Release, extract it
-into a folder you will keep, and run **install-local.cmd** on Windows. Alternatively,
-run `node scripts/install-local.cjs`. The helper registers the local marketplace,
-installs the plugin through Codex, and verifies the installed version and files.
-Restart the app and select Mail Bridge in a new local conversation.
-See [installation and troubleshooting](INSTALL.md).
+Download **codex-mail-bridge-0.9.3-plugin.zip** from the GitHub Release.
+For a first installation, use the desktop app's **New Plugin** archive upload,
+then open Mail Bridge and select **Install plugin** if shown. Start a new local
+conversation and select Mail Bridge. This workflow needs no separate installer.
 
-The desktop app's **New Plugin / Upload plugin archive** dialog uploads to the
-account service; it is separate from local installation. A generic upload failure
-does not establish a broken plugin or unsupported local execution. This release
-provides installation without that upload and does not claim to repair the service.
-For an existing account-hosted plugin, use its update workflow instead of creating
-a second plugin with the same name. No account-upload success is claimed here.
+**If Mail Bridge already exists, update that plugin instead of creating another
+with the same name.** The user traced the reported 0.9.1 creation failure to this
+same-name conflict. Use the existing plugin's update/upload-new-version action
+where available. Keep the package identity `codex-mail-bridge` across releases.
+See [installation and troubleshooting](INSTALL.md), including replacement
+precautions when the host has no update action.
 
-Without the helper, run these commands in the extracted distribution:
-
-```powershell
-codex plugin marketplace add .
-codex plugin add codex-mail-bridge@cyp-soft-local
-```
-
-Or register and install the versioned Git source:
-
-```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.2
-codex plugin add codex-mail-bridge@cyp-soft-local
-```
+The package credits **Cyp** in both manifests and About. Account-hosted listings
+can receive a developer label from the host service; changing this ZIP does not
+change the creating account's identity. The source ZIP and Git marketplace remain
+available for optional development workflows described in the installation guide.
 
 Ask for the intended client/account, such as:
 

@@ -16,7 +16,7 @@ function inspectDistribution(root) {
   const entry = catalog.plugins?.find(item => item.name === PLUGIN);
   if (catalog.name !== MARKETPLACE || entry?.source?.source !== 'local' ||
       entry.source.path !== './plugins/codex-mail-bridge') {
-    throw new Error('Extract the complete Mail Bridge local ZIP before installing. The local marketplace is missing or invalid.');
+    throw new Error('Extract the complete Mail Bridge source ZIP before this optional CLI installation. The local marketplace is missing or invalid.');
   }
   const pluginRoot = path.join(root, 'plugins', PLUGIN);
   const manifest = readJson(path.join(pluginRoot, 'plugin.json'));
@@ -25,7 +25,7 @@ function inspectDistribution(root) {
       !/^\d+\.\d+\.\d+$/.test(manifest.version) || manifest.version !== overlay.version ||
       manifest.extensions?.['com.openai']?.requires_local_executor !== true ||
       overlay.requires_local_executor !== true) {
-    throw new Error('The plugin manifests are inconsistent. Extract a fresh complete local ZIP.');
+    throw new Error('The plugin manifests are inconsistent. Extract a fresh complete source ZIP.');
   }
   for (const name of ['skills/mail-bridge/SKILL.md', 'scripts/mail_bridge.cjs', 'server/bridge.py']) {
     if (!fs.statSync(path.join(pluginRoot, name)).isFile()) throw new Error(`Missing plugin file: ${name}`);
@@ -98,7 +98,7 @@ function main(argv = process.argv.slice(2)) {
   let checkOnly = false, executable = process.env.MAIL_BRIDGE_CODEX;
   for (let index = 0; index < argv.length; index++) {
     if (argv[index] === '--help') {
-      console.log('Usage: node scripts/install-local.cjs [--check] [--codex EXECUTABLE]\nExtract the local ZIP into a folder you will keep. This registers its local marketplace and installs Mail Bridge.\n--check validates the distribution and CLI without changing configuration.');
+      console.log('Usage: node scripts/install-local.cjs [--check] [--codex EXECUTABLE]\nOptional developer workflow: extract the source ZIP into a folder you will keep. This registers its local marketplace and installs Mail Bridge.\nFor desktop New Plugin uploads, use the plugin ZIP instead.\n--check validates the distribution and CLI without changing configuration.');
       return;
     }
     if (argv[index] === '--check') checkOnly = true;
