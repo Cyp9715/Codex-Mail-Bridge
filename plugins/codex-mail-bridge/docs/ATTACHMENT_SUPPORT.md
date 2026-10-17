@@ -1,6 +1,6 @@
 # Original attachment handoff
 
-Version 0.9.0 retains the original-file handoff introduced in 0.4.0. It supports
+Version 0.9.1 retains the original-file handoff introduced in 0.4.0. It supports
 Thunderbird local MIME caches and classic Outlook by-value attachments. There are
 six attachment operations, for 19 local CLI operations in total; no MCP server is used.
 The bridge does not parse PDF, Word, Excel, archives or other document contents,
@@ -130,4 +130,4 @@ Extracted ZIP CLI attachment get passed with live Thunderbird and classic Outloo
 for Windows; original-byte hashes and explicit cleanup were checked. A new installed
 desktop plugin conversation, other providers and another PC remain unverified.
 See [release validation](RELEASE_VALIDATION.md). See [CLI contract](CLI.md),
-[verification evidence](../plugins/codex-mail-bridge/docs/REVIEW.md) and [publication controls](DEVELOPMENT_SECURITY.md).
+[verification evidence](REVIEW.md) and [publication controls](DEVELOPMENT_SECURITY.md).

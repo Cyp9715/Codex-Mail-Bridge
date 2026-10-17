@@ -1,6 +1,6 @@
 # Trademark and third-party notices
 
-Mail Bridge is an independent Cyp Soft project. Thunderbird, Microsoft Outlook,
+Mail Bridge is an independent Cyp project. Thunderbird, Microsoft Outlook,
 Microsoft Office, Codex, and ChatGPT identify compatible or related products;
 the project is not published, sponsored, endorsed, or approved by their owners.
 No affiliation, certification, or trademark permission is claimed.

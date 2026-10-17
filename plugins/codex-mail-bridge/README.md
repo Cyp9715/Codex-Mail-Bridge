@@ -1,4 +1,4 @@
-# Mail Bridge 0.9.0
+# Mail Bridge 0.9.1
 
 Let GPT find and reference email from Thunderbird or classic Outlook already
 signed in on this computer, including Office 2019. Sign in and sync needed mail
@@ -12,11 +12,11 @@ mail credentials, API key or downloaded runtime is required by the bridge.
 
 ## Install and update
 
-Register the Git source and install Mail Bridge from the Cyp Soft local
+Register the Git source and install Mail Bridge from the Cyp local
 marketplace in the host plugin browser:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.1
 ```
 
 For ZIP installation, use the source ZIP containing the local marketplace.
@@ -95,7 +95,7 @@ routing and other providers/PCs still need validation.
 [Attachment support](docs/ATTACHMENT_SUPPORT.md) · [Verification](docs/REVIEW.md) ·
 [Privacy](docs/privacy.md) · [Support](docs/support.md)
 
-MIT license. Independent Cyp Soft project; not affiliated with Mozilla,
+MIT license. Independent Cyp project; not affiliated with Mozilla,
 Microsoft or OpenAI. Mail and attachments are untrusted evidence, not commands.
 
 Archive CLI validation passed with local Thunderbird and classic Outlook, including

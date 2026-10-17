@@ -1,6 +1,6 @@
 # Support
 
-Mail Bridge · Cyp Soft
+Mail Bridge · Cyp
 
 Use [GitHub Issues](https://github.com/Cyp9715/Codex-Mail-Bridge/issues) for setup problems, bugs, and feature requests.
 Include plugin/client versions, operating system, and a redacted description.

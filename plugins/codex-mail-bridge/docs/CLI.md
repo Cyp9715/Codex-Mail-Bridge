@@ -22,7 +22,7 @@ Alternatively use a verified `python ./server/bridge.py` with the same arguments
 Resolve installed paths rather than assuming the repository working directory.
 `--list` returns operation names; `--describe` returns one JSON input schema and
 local side effects. Neither reads mail. There are 19 operations. No MCP connection,
-OAuth, API key or Cyp Soft remote service is needed.
+OAuth, API key or Cyp remote service is needed.
 
 Without an input option, `--call` uses `{}` and does not wait on stdin.
 `--arguments-file` reads UTF-8 (including a UTF-8 BOM), or `--arguments-stdin`

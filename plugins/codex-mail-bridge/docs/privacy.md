@@ -1,6 +1,6 @@
 # Privacy notice
 
-Mail Bridge · Cyp Soft · effective October 17, 2026
+Mail Bridge · Cyp · effective October 17, 2026
 
 ## Local access
 
@@ -42,7 +42,7 @@ can leave copies. There is no background deletion process. Switching accounts
 cannot recall exported files, host copies or chat history.
 See [attachment details](ATTACHMENT_SUPPORT.md).
 
-There is no Cyp Soft backend, analytics, telemetry, advertising, payment, or
+There is no Cyp backend, analytics, telemetry, advertising, payment, or
 mail archive. The one-shot local launcher downloads nothing and starts no MCP
 server or network listener. The Python/PowerShell bridge
 does not directly call a network mail service, but Outlook's configured provider

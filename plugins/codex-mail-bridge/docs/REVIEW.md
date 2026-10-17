@@ -1,11 +1,16 @@
 # Mail Bridge verification evidence
 
-Version 0.9.0 · synthetic public data only
+Version 0.9.1 · synthetic public data only
+
+The attribution patch ran 104 plugin cases: 103 passed and one PowerShell runtime
+case was skipped under the existing script policy. All 22 release/publication
+cases passed. The extracted release passed synthetic CLI and original-file
+handoff checks. No live mailbox checks were repeated for this metadata patch.
 
 The local skill uses 19 one-shot CLI operations with schemas loaded on demand.
 See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.
 
-- Current plugin suite: 104 pass; no skips. PowerShell 5.1 source syntax, synthetic
+- The 0.9.0 plugin suite: 104 pass; no skips. PowerShell 5.1 source syntax, synthetic
   scope and missing-ROT-connection checks pass under the existing policy.
 - Release/publication suite: 22 pass.
 - Regression coverage includes scoped searches, UTC/subsecond bounds, body revision
@@ -14,7 +19,7 @@ See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.
 - Source-only host QA generates PDF/DOCX mail, exports originals through separate
   CLI processes, checks bytes/hashes, reads with host-side libraries and releases
   exports. Runtime has no PDF/Office parser.
-- Extracted ZIP CLI status/search/read/thread and original-file export passed
+- The 0.9.0 extracted ZIP CLI status/search/read/thread and original-file export passed
   with live Thunderbird and classic Outlook, including sampled unread-state checks.
   Account-specific evidence stays private; no mail/identities/files enter releases.
 - Installed-host routing, Exchange-specific SMTP resolution, other providers/PCs

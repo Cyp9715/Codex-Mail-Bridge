@@ -1,4 +1,19 @@
-# Mail Bridge 0.9.0 release validation
+# Mail Bridge 0.9.1 release validation
+
+Validated October 18, 2026. This patch standardizes developer attribution as Cyp
+in both manifests, the marketplace display name, notices and documentation. The
+portable manifest, compatibility manifest and CLI runtime report 0.9.1. The
+marketplace ID and private settings paths are retained for existing installations.
+The packaged attachment guide's verification link is corrected for ZIP installs.
+
+Patch validation: 104 plugin cases ran (103 passed, one PowerShell runtime case
+skipped under the existing script policy); all 22 release/publication cases passed.
+No script policy was changed or bypassed. Release ZIPs were checked against source,
+and the extracted plugin passed synthetic CLI search/list/get/release checks.
+This attribution patch does not change mail retrieval behavior. Live mailbox
+checks were not repeated; the prior runtime evidence below remains scoped to 0.9.0.
+
+## Prior 0.9.0 validation record
 
 Validated October 17, 2026. This report contains technical outcomes only. No
 mailbox identities, subjects, bodies, filenames, message/store IDs, user paths or
@@ -26,7 +41,7 @@ The existing `v0.8.0` tag is preserved.
 
 See Microsoft's [Outlook automation guidance](https://learn.microsoft.com/en-us/office/vba/outlook/concepts/getting-started/automating-outlook-from-other-office-applications).
 
-## Checks completed
+## Checks completed for 0.9.0
 
 | Check | Result |
 | --- | --- |
@@ -54,7 +69,7 @@ or OpenAI directory approval is claimed.
 
 ## Download and install
 
-For a complete local installation, download **codex-mail-bridge-0.9.0-source.zip**
+For a complete local installation, download **codex-mail-bridge-0.9.1-source.zip**
 from the GitHub Release. It includes the local marketplace and plugin directory.
 Extract it into a folder you intend to keep, open a terminal in that folder, then:
 
@@ -68,13 +83,13 @@ access are required; Node.js is an optional launcher. Classic Outlook must alrea
 be running and Windows PowerShell must permit scripts under the existing policy.
 Private account selections are outside the package and are preserved.
 
-The smaller **codex-mail-bridge-0.9.0-plugin.zip** contains one plugin for a host's
+The smaller **codex-mail-bridge-0.9.1-plugin.zip** contains one plugin for a host's
 supported package workflow. It has no marketplace wrapper. Do not register that
 directory as a marketplace without providing the host's required marketplace
 configuration. Git installation is also available:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.1
 codex plugin add codex-mail-bridge@cyp-soft-local
 ```
 

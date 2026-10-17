@@ -1,6 +1,6 @@
 # Terms of use
 
-Mail Bridge · Cyp Soft · effective October 16, 2026
+Mail Bridge · Cyp · effective October 16, 2026
 
 This free software uses the repository's [MIT License](../LICENSE). There are no
 purchases, subscriptions, or paid upgrades. Use accounts/data you are authorized
@@ -20,7 +20,7 @@ new Outlook, web Outlook, and Outlook for Mac are unsupported. This is independe
 of OpenAI's cloud Outlook connector and does not provide licenses for Office,
 Thunderbird, Codex, or other services. Their own terms still apply.
 
-This independent Cyp Soft project is not endorsed by Mozilla, Thunderbird,
+This independent Cyp project is not endorsed by Mozilla, Thunderbird,
 Microsoft, or OpenAI. MIT does not grant third-party trademark rights. See
 [third-party notices](../THIRD_PARTY_NOTICES.md). No support response time or
 service-level commitment is guaranteed. Read [privacy](privacy.md) before use.

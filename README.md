@@ -12,11 +12,13 @@ Keep classic Outlook running in that signed-in profile.** Thunderbird can read
 an existing local index/cache with its window closed. The bridge does not log in
 or request passwords.
 
-Version 0.9.0 uses a **skill and one-shot local scripts**. No MCP server, network
-listener, Cyp Soft backend or cloud mail connection is needed. The installed
+Version 0.9.1 uses a **skill and one-shot local scripts**. No MCP server, network
+listener, Cyp backend or cloud mail connection is needed. The installed
 skill invokes only the requested local operation and receives compact JSON.
 Retrieved account details, mail text and files opened by the AI host can be sent
 to OpenAI for the requested task. Local access does not mean offline GPT processing.
+
+Version 0.9.1 standardizes developer attribution as **Cyp**.
 
 ## Supported environment
 
@@ -41,10 +43,10 @@ marketplace entries. Start a new local conversation after installation/reload an
 select Mail Bridge. To register this Git marketplace:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.1
 ```
 
-Choose the Cyp Soft local marketplace in the host plugin browser and install Mail Bridge. Reload the installed plugin after updates; editing source does not rewrite installed caches.
+Choose the Cyp local marketplace in the host plugin browser and install Mail Bridge. Reload the installed plugin after updates; editing source does not rewrite installed caches.
 
 Ask for the intended client/account, such as:
 
@@ -181,5 +183,5 @@ remaining compatibility checks. Historical directory notes are in
 
 [Support](docs/support.md) · [Privacy](docs/privacy.md) · [Terms](docs/terms.md)
 
-Independent Cyp Soft project; not affiliated with Mozilla, Microsoft or OpenAI.
+Independent Cyp project; not affiliated with Mozilla, Microsoft or OpenAI.
 Contributors must follow [publication controls](docs/DEVELOPMENT_SECURITY.md).

@@ -1,7 +1,7 @@
 {
   "name": "cyp-soft-local",
   "interface": {
-    "displayName": "Cyp Soft · Local"
+    "displayName": "Cyp · Local"
   },
   "plugins": [
     {

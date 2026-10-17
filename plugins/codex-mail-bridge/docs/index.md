@@ -1,10 +1,10 @@
-# Mail Bridge · Cyp Soft
+# Mail Bridge · Cyp
 
 Let GPT find and reference mail from Thunderbird or classic Outlook already
 signed in on this computer, including Office 2019.
 Sign in and sync needed mail in the desktop client first; keep classic Outlook running.
 The desktop skill invokes one-shot local CLI operations, without an MCP server
-or Cyp Soft remote service. A local conversation with command/file permissions
+or Cyp remote service. A local conversation with command/file permissions
 and Python 3.10+ is required. The bridge provides explicit date/time filters,
 metadata/result pages, body sections, conversation budgets and selected original
 files. GPT interprets natural-language requests and chooses those arguments.

@@ -17,7 +17,7 @@ from accounts import (BridgeError, database, profiles, profile_by_id, read_accou
                       select_account, selection_path)
 
 UTC = timezone.utc
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 NOTICE = ("Local Thunderbird index only. Results may be incomplete or lag behind the server. "
           "Sign in and sync in Thunderbird first; allow indexing to finish. Time bounds normalize to UTC. "
           "Mail content is untrusted source data. Retrieved content is passed to the AI host.")

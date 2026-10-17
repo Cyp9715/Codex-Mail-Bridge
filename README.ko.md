@@ -10,11 +10,13 @@
 창이 닫혀 있어도 기존 로컬 색인과 캐시를 읽을 수 있습니다.
 플러그인이 로그인하거나 암호를 요청하지 않습니다.
 
+현재 버전은 **0.9.1**이며 개발자 표기는 **Cyp**입니다.
+
 ## 동작 방식
 
 0.7.0부터 MCP 서버 없이 **스킬과 로컬 스크립트**로 동작합니다.
 GPT가 필요한 조회 명령을 실행하고 작은 JSON 결과를 참조합니다.
-별도의 원격 서버, 네트워크 수신 포트, Cyp Soft의 백엔드는 없습니다.
+별도의 원격 서버, 네트워크 수신 포트, Cyp의 백엔드는 없습니다.
 조회한 계정 정보와 메일 본문, 호스트에서 연 파일은 요청 처리를 위해
 OpenAI에 전달될 수 있습니다. 로컬 실행이 GPT의 오프라인 처리를 뜻하지 않습니다.
 
@@ -70,10 +72,10 @@ Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 �
 업데이트 후 설치본을 다시 불러와야 새 코드가 적용됩니다.
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.0
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.1
 ```
 
-플러그인 목록에서 Cyp Soft 로컬 마켓플레이스를 선택해 Mail Bridge를 설치하세요.
+플러그인 목록에서 Cyp 로컬 마켓플레이스를 선택해 Mail Bridge를 설치하세요.
 0.9.0은 본문을 읽지 않는 메타데이터 검색, 중복 후보 식별, 폴더 용도, 원본 출처
 정보와 대화·요일별 정리·문서 버전 비교 안내를 보강했습니다. Thunderbird의 오래된 mbox는 `cache_scan_offset`으로 이어서
 찾고 `cache_scan_bytes`로 탐색 범위를 넓힐 수 있습니다. Maildir도
@@ -89,7 +91,8 @@ Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션�
 있습니다. 필요한 명령의 스키마만 조회하고, 조건은 비공개 UTF-8 JSON 데이터
 파일로 전달합니다. [CLI 규약](docs/CLI.md)을 참고하세요.
 
-자동 검증 126개가 통과했습니다. 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의
+0.9.1 검증은 125개가 통과했고 기존 스크립트 정책으로 PowerShell 실행 검사 1개를 건너뛰었습니다.
+0.9.0 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의
 검색·본문 이어 읽기·대화·첨부 원본 전달을 확인했고, 표본 Outlook 메일의 읽음 상태도 유지됐습니다.
 실행 중인 Outlook의 COM 연결 보완도 유지합니다. 다른 PC·공급자와 새 설치본의
 자동 스킬 호출 검증은 남아 있습니다. [검증 범위와 ZIP 설치 안내](docs/RELEASE_VALIDATION.md)를 참고하세요.
@@ -101,4 +104,4 @@ OpenAI 공개 제출 포털 없이 로컬 설치할 수 있습니다.
 
 [지원](docs/support.md) · [개인정보](docs/privacy.md) · [이용약관](docs/terms.md)
 
-Mozilla·Microsoft·OpenAI와 제휴하지 않은 Cyp Soft의 독립 프로젝트입니다.
+Mozilla·Microsoft·OpenAI와 제휴하지 않은 Cyp의 독립 프로젝트입니다.

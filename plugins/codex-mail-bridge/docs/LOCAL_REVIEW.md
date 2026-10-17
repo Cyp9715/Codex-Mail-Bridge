@@ -1,6 +1,7 @@
-# Mail Bridge 0.9.0 local architecture review
+# Mail Bridge 0.9.1 local architecture review
 
-Reviewed 2026-10-17. Local distribution and useful mail access are the release
+Reviewed 2026-10-18. Version 0.9.1 updates developer attribution to Cyp;
+runtime mail access is unchanged. Local distribution and useful mail access are the release
 criteria; public-directory submission is not part of this release.
 
 ## Execution choice
@@ -60,7 +61,7 @@ bypass was added.
 
 ## Verification
 
-Current rerun: 104 plugin cases pass and 22 release/publication cases pass, with
+The 0.9.0 validation run: 104 plugin cases pass and 22 release/publication cases pass, with
 no skips under the existing RemoteSigned policy. PowerShell syntax and synthetic
 scope/COM-connection cases pass. Automated fixtures use synthetic .test mail only.
 The earlier 0.8.0 audit skipped its runtime case under Restricted policy; policies
