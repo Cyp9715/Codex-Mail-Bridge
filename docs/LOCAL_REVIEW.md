@@ -1,13 +1,13 @@
-# Mail Bridge 0.9.3 local architecture review
+# Mail Bridge 0.10.0 local architecture review
 
-Reviewed 2026-10-18. Version 0.9.3 restores the plugin ZIP as the primary download
-and documents existing-plugin updates after a user-confirmed same-name creation
-conflict. Both manifests credit Cyp; runtime mail access is unchanged. Local
-plugin use is the release target; public-directory submission is not part of it.
+Reviewed 2026-10-19. Version 0.10.0 adds explicit Outlook CLI diagnostics and
+startup, structured recovery actions and instructions that prohibit Computer Use
+for mail tasks. Thunderbird adapters, account selection and mailbox read-only
+behavior are retained. See [release notes](RELEASE_NOTES.md).
 
 ## Execution choice
 
-Keep the skill plus 19 one-shot CLI operations. It runs only on request, needs no
+Keep the skill plus 21 one-shot CLI operations. It runs only on request, needs no
 server lifetime, socket, OAuth, API key or new dependency, and exposes one schema
 on demand. This suits a local host with command/file tools. MCP could offer native
 tool discovery in a different host, but would add lifecycle and integration work
@@ -24,6 +24,8 @@ A file export is not proof of host analysis or a cloud upload.
 
 | Finding | Change and practical effect |
 | --- | --- |
+| Outlook recovery said to check the client without a CLI path | Dedicated diagnostics and explicit idempotent startup; failures identify the next action. |
+| The skill did not prohibit screen automation fallback | CLI-only instructions cover startup, mail lookup and troubleshooting; prompts are handled by the user. |
 | Outlook subject/newest scans enumerated up to 200 recipients and filenames on every candidate | Compact searches avoid those collection loops; flags distinguish omitted details from absence. Relevant filters still inspect needed collections. |
 | Attachment scans spent candidate windows on messages without files | PR_HASATTACH filters the Outlook metadata table before date-limited candidate windows. No payload is read for search. |
 | Exchange addresses could be internal EX identifiers | SMTP properties and Exchange user/distribution-list addresses are attempted, with the provider value retained if resolution is unavailable. |

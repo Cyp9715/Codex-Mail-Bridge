@@ -1,6 +1,6 @@
 # Install and update the Mail Bridge plugin
 
-Use **codex-mail-bridge-0.9.3-plugin.zip** from the GitHub Release.
+Use **codex-mail-bridge-0.10.0-plugin.zip** from the GitHub Release.
 This is a complete plugin package for the desktop app's **New Plugin** archive
 upload. Keep the ZIP intact; no separate installer is required for this workflow.
 The source ZIP is for development, not this upload dialog.
@@ -56,8 +56,8 @@ submissions separately use the selected verified developer identity; see the
 
 | File | Purpose |
 | --- | --- |
-| `codex-mail-bridge-0.9.3-plugin.zip` | Upload one self-contained Mail Bridge plugin |
-| `codex-mail-bridge-0.9.3-source.zip` | Repository source, tests and optional development helpers |
+| `codex-mail-bridge-0.10.0-plugin.zip` | Upload one self-contained Mail Bridge plugin |
+| `codex-mail-bridge-0.10.0-source.zip` | Repository source, tests and optional development helpers |
 | `SHA256SUMS` | Verify the downloaded release archives |
 
 The plugin ZIP includes its portable manifest, Codex compatibility manifest,
@@ -70,7 +70,7 @@ retrieved later for an authorized task can reach the AI host.
 Developers who intentionally use a local marketplace can register the Git source:
 
 ```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.9.3
+codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.10.0
 codex plugin add codex-mail-bridge@cyp-soft-local
 ```
 

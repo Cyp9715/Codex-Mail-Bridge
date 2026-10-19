@@ -1,9 +1,17 @@
 # Mail Bridge agent workflows
 
-Version 0.9.3 keeps 19 local operations. The bridge supplies selected mail evidence
+Version 0.10.0 exposes 21 local operations. The bridge supplies selected mail evidence
 and original files; the host agent performs reasoning and document analysis. Load
 only the requested command schema and relevant skill reference, not every tool's
 schema, every body or every attachment.
+
+## Outlook CLI routing
+
+Use `outlook_diagnostics`, `outlook_start` only if needed, then `outlook_status`.
+Diagnostics never access COM/accounts/mail. Starting does not prove readiness.
+Use the remaining Outlook CLI operations for all mail lookup and recovery; do not
+invoke Computer Use. The user handles any login/profile/security prompt. Existing
+account authorization persists and cannot be inferred from mail contents.
 
 ## Conversation research
 

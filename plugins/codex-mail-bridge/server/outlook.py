@@ -11,7 +11,8 @@ import attachments
 from mail_dates import resolve_range
 from mail_output import bounded_metadata, budget_bodies, folder_page, message_identity
 
-NOTICE = ("Sign in and sync in classic Outlook first, then keep it running. "
+NOTICE = ("Access uses local Windows PowerShell/COM; Computer Use is not required. "
+          "Sign in and sync in classic Outlook first, then keep it running. "
           "Searches are bounded and report scan_incomplete when partial. Outlook may fetch data "
           "through its configured provider; offline operation or complete sync is not guaranteed. "
           "No send, delete, move, mark-read, or draft-save operations. Attachments are transferred as original files, never parsed or executed.")
@@ -31,7 +32,8 @@ def powershell_environment():
 
 def backend(operation, **arguments):
     if sys.platform != "win32":
-        raise BridgeError("Outlook requires Windows and a running classic Outlook desktop profile.")
+        raise BridgeError("Outlook requires Windows and a running classic Outlook desktop profile.",
+                          code="unsupported_platform", next_action="use_windows_classic_outlook")
     system_root = Path(os.environ.get("SystemRoot", "C:/Windows"))
     executable = system_root / "System32/WindowsPowerShell/v1.0/powershell.exe"
     script = Path(__file__).with_suffix(".ps1")
@@ -43,16 +45,22 @@ def backend(operation, **arguments):
             env=powershell_environment())
         data = json.loads(result.stdout.lstrip("\ufeff"))
     except subprocess.TimeoutExpired:
-        raise BridgeError("Outlook did not respond. Check its security/access prompt or profile, then retry. Security settings are never changed.",
-                          code="provider_timeout", retryable=True, next_action="check_client_then_retry") from None
+        raise BridgeError("Outlook did not respond. Run outlook_diagnostics once. If a login, profile or security/access prompt is present, the user must handle it in Outlook before retrying. Do not use Computer Use or change security settings.",
+                          code="provider_timeout", next_action="user_check_outlook_then_retry",
+                          details={"recovery_operation": "outlook_diagnostics", "computer_use_required": False}) from None
     except (OSError, UnicodeError, ValueError):
-        raise BridgeError("Could not read Outlook. Open classic Outlook and check Windows PowerShell/script policy. No security policy is bypassed.",
+        raise BridgeError("Could not run the Outlook CLI adapter. Check Windows PowerShell 5.1 and its existing script policy. Report the blocker without Computer Use or a policy bypass.",
                           code="runtime_unavailable", next_action="check_runtime_compatibility") from None
     if result.returncode or not isinstance(data, dict) or not data.get("ok"):
         code = data.get("error") if isinstance(data, dict) else None
         explanations = {
-            "outlook_not_running": "Open classic Outlook in the intended signed-in Windows profile and retry.",
+            "outlook_not_running": "Classic Outlook is not running in this Windows session. Run outlook_diagnostics, then outlook_start for an existing configured profile, and retry the operation.",
+            "classic_outlook_not_installed": "Classic Outlook was not found in Windows App Paths. New/web Outlook cannot provide this COM adapter.",
+            "outlook_profile_required": "Configure and sign in to a classic Outlook profile yourself, then retry. The bridge does not create profiles or automate login.",
+            "outlook_start_timeout": "Classic Outlook has not started yet. Run outlook_diagnostics before retrying; the user must handle any profile/login prompt.",
             "outlook_instance_ambiguous": "Multiple classic Outlook processes are running in this Windows session. Resolve the intended instance before retrying.",
+            "outlook_access_denied": "Outlook denied COM access. The user must resolve any security/access prompt or organization policy. Do not use Computer Use or weaken security settings.",
+            "outlook_busy": "Classic Outlook is busy or rejected the COM call. Retry once after it becomes ready; do not switch to Computer Use.",
             "shared_delivery_store": "Multiple Outlook accounts share a delivery store; this layout cannot safely isolate one account.",
             "selection_changed": "Outlook account/profile identity changed. Discover and explicitly select the account again.",
             "message_outside_scope": "Message is outside the selected Outlook account or in an excluded folder.",
@@ -66,11 +74,31 @@ def backend(operation, **arguments):
             "attachment_data_unavailable": "The Outlook provider did not expose the original attachment bytes within the size limit.",
             "body_changed": "Message body changed between reads. Restart reading this message.",
         }
-        action = "narrow_filters_or_retry" if code == "candidate_scan_timeout" else "list_attachments_again" if code == "attachment_changed" else "restart_message_read" if code == "body_changed" else "check_client_status"
-        raise BridgeError(explanations.get(code, "Outlook access failed. Check the running classic profile and security prompt. Nothing was sent or changed."),
+        action = {
+            "outlook_not_running": "start_outlook", "classic_outlook_not_installed": "install_classic_outlook",
+            "outlook_profile_required": "user_setup_outlook_profile", "outlook_start_timeout": "run_outlook_diagnostics",
+            "outlook_instance_ambiguous": "resolve_outlook_instances", "outlook_access_denied": "user_resolve_outlook_access",
+            "outlook_busy": "retry_operation_once", "candidate_scan_timeout": "narrow_filters_or_retry",
+            "attachment_changed": "list_attachments_again", "body_changed": "restart_message_read",
+        }.get(code, "run_outlook_diagnostics")
+        raise BridgeError(explanations.get(code, "Outlook COM access failed. Run outlook_diagnostics once; the user must resolve any login, profile or security prompt. Do not fall back to Computer Use."),
                           code=code if code in explanations else "provider_unavailable",
-                          retryable=code == "candidate_scan_timeout", next_action=action)
+                          retryable=code in {"candidate_scan_timeout", "outlook_busy", "outlook_start_timeout"}, next_action=action,
+                          details={"recovery_operation": "outlook_diagnostics", "computer_use_required": False})
+    if not isinstance(data.get("result"), dict):
+        raise BridgeError("Outlook CLI returned an invalid response.", code="invalid_provider_response",
+                          next_action="run_outlook_diagnostics")
     return data["result"]
+
+
+def diagnostics():
+    """Inspect installation/process state without COM activation or mailbox access."""
+    return backend("diagnostics")
+
+
+def start():
+    """Explicit, idempotent launch of an already configured desktop client."""
+    return backend("start")
 
 
 def accounts():

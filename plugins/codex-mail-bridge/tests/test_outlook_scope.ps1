@@ -192,4 +192,42 @@ try {
     Remove-Item Function:Get-Process
     Remove-Item Function:New-Object
 }
+
+# Lifecycle requests must never activate COM, read accounts or inspect windows.
+$script:runtimeProcesses = @()
+$script:runtimeInstalled = $true
+$script:runtimeProfile = $true
+$script:startCalls = 0
+function Get-RegisteredOutlookApplication { throw 'Lifecycle touched COM' }
+function Get-ClassicOutlookExecutable { if ($script:runtimeInstalled) { return 'synthetic-outlook.exe' }; return '' }
+function Test-OutlookProfileConfigured { return $script:runtimeProfile }
+function Get-SessionOutlookProcesses { return $script:runtimeProcesses }
+function Get-Process { param($Name, $ErrorAction) return @() }
+function Start-Process {
+    param($FilePath, $WindowStyle, [switch]$PassThru)
+    if ($FilePath -cne 'synthetic-outlook.exe' -or $WindowStyle -cne 'Hidden') { throw 'Unsafe startup arguments' }
+    $script:startCalls++
+    $script:runtimeProcesses = @([pscustomobject]@{ Id = 1 })
+}
+try {
+    $state = Invoke-OutlookRequest @{ operation = 'diagnostics' }
+    if ($state.classic_outlook_running -or $state.computer_use_required -or $state.next_action -ne 'start_outlook' -or $script:startCalls) { throw 'Diagnostics started or read Outlook' }
+    $started = Invoke-OutlookRequest @{ operation = 'start' }
+    if (-not $started.started -or $script:startCalls -ne 1) { throw 'CLI did not start Outlook' }
+    $again = Start-ClassicOutlook
+    if ($again.started -or -not $again.already_running -or $script:startCalls -ne 1) { throw 'Startup is not idempotent' }
+    $script:runtimeProcesses = @([pscustomobject]@{ Id = 1 }, [pscustomobject]@{ Id = 2 })
+    Assert-Blocked { Start-ClassicOutlook } 'outlook_instance_ambiguous'
+    $script:runtimeProcesses = @(); $script:runtimeInstalled = $false
+    Assert-Blocked { Start-ClassicOutlook } 'classic_outlook_not_installed'
+    $state = Get-OutlookRuntimeState
+    if ($state.next_action -ne 'install_classic_outlook') { throw 'Missing classic Outlook reported ready' }
+    $script:runtimeInstalled = $true; $script:runtimeProfile = $false
+    Assert-Blocked { Start-ClassicOutlook } 'outlook_profile_required'
+    $state = Get-OutlookRuntimeState
+    if ($state.next_action -ne 'user_setup_outlook_profile' -or $script:startCalls -ne 1) { throw 'Unconfigured profile started' }
+} finally {
+    Remove-Item Function:Get-Process
+    Remove-Item Function:Start-Process
+}
 Write-Output 'Outlook scope tests passed'

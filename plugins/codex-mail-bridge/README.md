@@ -1,4 +1,4 @@
-# Mail Bridge 0.9.3
+# Mail Bridge 0.10.0
 
 Let GPT find and reference email from Thunderbird or classic Outlook already
 signed in on this computer, including Office 2019. Sign in and sync needed mail
@@ -12,7 +12,7 @@ mail credentials, API key or downloaded runtime is required by the bridge.
 
 ## Install and update
 
-Upload **codex-mail-bridge-0.9.3-plugin.zip** in the desktop app's **New Plugin**
+Upload **codex-mail-bridge-0.10.0-plugin.zip** in the desktop app's **New Plugin**
 dialog for a first installation. Open the registered Mail Bridge entry and select
 **Install plugin** if shown, then select it in a new local conversation.
 This archive is the complete plugin; no separate installer is required.
@@ -30,6 +30,18 @@ Version 0.9.0 adds body-free metadata topic searches, scoped duplicate-candidate
 keys, configured folder roles and original-file provenance. Lazy task guides
 cover conversation research, weekday summaries and document-version comparisons.
 See [agent workflows](docs/AGENT_WORKFLOWS.md).
+
+## Outlook through the CLI
+
+Run `outlook_diagnostics` first. If it reports `start_outlook`, run `outlook_start`
+once, then `outlook_status`. These operations use Windows installation/process
+metadata and the registered classic executable. Diagnostics do not activate COM
+or read accounts/mail. Start requires an existing profile and is idempotent.
+Starting a process does not prove profile/COM readiness. Outlook itself may show
+a window; the bridge never operates it. Handle login/profile/security prompts
+yourself. The skill must not use Computer Use or bypass policy on failure.
+Existing search/read operations never launch the client implicitly.
+See [release notes](docs/RELEASE_NOTES.md).
 
 ## Workflow
 

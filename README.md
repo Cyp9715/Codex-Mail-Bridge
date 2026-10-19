@@ -8,18 +8,20 @@
 classic Outlook already signed in on this computer, including Office 2019.**
 
 **Sign in to your desktop mail client and sync the mail you need before use.
-Keep classic Outlook running in that signed-in profile.** Thunderbird can read
+Keep classic Outlook running in that signed-in profile; the CLI can start an existing configured profile.** Thunderbird can read
 an existing local index/cache with its window closed. The bridge does not log in
 or request passwords.
 
-Version 0.9.3 uses a **skill and one-shot local scripts**. No MCP server, network
+Version 0.10.0 uses a **skill and one-shot local scripts**. No MCP server, network
 listener, Cyp backend or cloud mail connection is needed. The installed
 skill invokes only the requested local operation and receives compact JSON.
 Retrieved account details, mail text and files opened by the AI host can be sent
 to OpenAI for the requested task. Local access does not mean offline GPT processing.
 
-Version 0.9.3 makes the **plugin ZIP** the primary download and clarifies how to
-update an existing same-name plugin. Package developer attribution remains **Cyp**.
+Version 0.10.0 makes Outlook operation explicitly **CLI-only**. New diagnostics
+and an idempotent start command handle installation/process checks and startup
+without Computer Use. Thunderbird mail access and existing account choices are
+unchanged. See the [release notes](docs/RELEASE_NOTES.md).
 
 ## Supported environment
 
@@ -38,7 +40,7 @@ The bridge does not force sync or weaken client or script security policies.
 
 ## Install and update the plugin
 
-Download **codex-mail-bridge-0.9.3-plugin.zip** from the GitHub Release.
+Download **codex-mail-bridge-0.10.0-plugin.zip** from the GitHub Release.
 For a first installation, use the desktop app's **New Plugin** archive upload,
 then open Mail Bridge and select **Install plugin** if shown. Start a new local
 conversation and select Mail Bridge. This workflow needs no separate installer.
@@ -66,12 +68,14 @@ needed. It never silently selects all accounts, combines clients or switches
 accounts. Existing authorized selections are preserved. Discovery itself returns
 personal profile/account metadata to the AI host.
 
-There are 19 local operations. Each schema is available on demand, without reading
+There are 21 local operations. Each schema is available on demand, without reading
 mail or loading every schema into the conversation:
 
 ```powershell
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --list
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --describe outlook_search
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_diagnostics
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_start
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_status
 ```
 

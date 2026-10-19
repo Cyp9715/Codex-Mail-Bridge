@@ -1,36 +1,24 @@
 # Mail Bridge verification evidence
 
-Version 0.9.3 · synthetic public data only
+Version 0.10.0 · synthetic public evidence only
 
-Version 0.9.3 clarifies plugin ZIP installation and existing-entry updates after
-the user identified a same-name creation conflict. Current package and regression
-results are recorded in [release validation](RELEASE_VALIDATION.md). Account-service
-upload and displayed developer identity are not certified by local CLI tests.
-No live mailbox checks are repeated for this packaging release.
+The skill uses 21 one-shot CLI operations. Outlook diagnosis/startup and mail
+access require no Computer Use. New lifecycle tests cover mail-free diagnostics,
+idempotent startup, existing-profile requirements, ambiguous instances and
+specific recovery actions. Existing account/store/folder scope tests remain.
 
-The local skill uses 19 one-shot CLI operations with schemas loaded on demand.
-See [LOCAL_REVIEW.md](LOCAL_REVIEW.md) for findings and verification limits.
+- Plugin suite: 107 passed; no skips, including PowerShell 5.1 syntax and synthetic runtime checks.
+- Release/publication suite: 26 passed. Source-only installer suite: 8 passed.
+- Live selected Thunderbird and classic Outlook status/search/read/thread passed.
+  The sampled Outlook unread flag was unchanged. Mail evidence remains private.
+- Three generated PDF/DOCX originals passed hash, host analysis and release checks.
+- Plugin/source ZIP integrity, source bytes, links and isolated install/reinstall/
+  upgrade from 0.9.3 passed. Existing account settings are outside the package.
 
-- The 0.9.0 plugin suite: 104 pass; no skips. PowerShell 5.1 source syntax, synthetic
-  scope and missing-ROT-connection checks pass under the existing policy.
-- Release/publication suite: 22 pass.
-- Regression coverage includes scoped searches, UTC/subsecond bounds, body revision
-  paging, selected originals, larger-file opt-in, old maildir and boundary-spanning mbox
-  windows, capacity preservation, partial-copy cleanup and process locking.
-- Source-only host QA generates PDF/DOCX mail, exports originals through separate
-  CLI processes, checks bytes/hashes, reads with host-side libraries and releases
-  exports. Runtime has no PDF/Office parser.
-- The 0.9.0 extracted ZIP CLI status/search/read/thread and original-file export passed
-  with live Thunderbird and classic Outlook, including sampled unread-state checks.
-  Account-specific evidence stays private; no mail/identities/files enter releases.
-- Installed-host routing, Exchange-specific SMTP resolution, other providers/PCs
-  and live non-Windows Thunderbird remain unverified. See
-  [release validation](RELEASE_VALIDATION.md).
-
-New synthetic coverage includes body-free metadata topics, duplicate-candidate
-keys/fallbacks, localized/custom/mixed folder roles, attachment provenance,
-same-name different originals and TNEF hints without expansion. Host QA verifies
-ordinary DOCX strikethrough separately from plugin transport.
+See [release validation](RELEASE_VALIDATION.md) for scope and unverified host routing,
+and [local review](LOCAL_REVIEW.md) for design. Live attachment transfer was not
+repeated for this runtime-only change; retained transfer behavior has synthetic
+regression and previous live-release evidence.
 
 ## Optional functional walkthrough
 

@@ -1,6 +1,6 @@
 # Local CLI contract
 
-Version 0.9.0 has no MCP transport, background process or network listener.
+Version 0.10.0 has no MCP transport, background process or network listener.
 The packaged skill invokes one local operation per command. It requires a local
 desktop host with command/file permission, Python 3.10+, and a signed-in mail client.
 
@@ -21,7 +21,7 @@ node ./scripts/mail_bridge.cjs --cleanup
 Alternatively use a verified `python ./server/bridge.py` with the same arguments.
 Resolve installed paths rather than assuming the repository working directory.
 `--list` returns operation names; `--describe` returns one JSON input schema and
-local side effects. Neither reads mail. There are 19 operations. No MCP connection,
+local side effects. Neither reads mail. There are 21 operations. No MCP connection,
 OAuth, API key or Cyp remote service is needed.
 
 Without an input option, `--call` uses `{}` and does not wait on stdin.
@@ -58,6 +58,7 @@ emitted for errors. Normal successful results contain only the requested data.
 | Family | Names |
 | --- | --- |
 | Thunderbird setup | thunderbird_profiles, thunderbird_accounts, thunderbird_select_account |
+| Outlook runtime | outlook_diagnostics, outlook_start |
 | Outlook setup | outlook_accounts, outlook_select_account |
 | Selected account | thunderbird_status, outlook_status |
 | Mail | thunderbird_search/read/thread, outlook_search/read/thread (each suffix is a separate operation) |
@@ -142,3 +143,31 @@ for candidates and the complete MIME only for matching identities, including a
 message spanning a window edge. Scan time remains bounded; the MIME message cap
 is 160 MiB to accommodate a caller-selected original up to 100 MiB with encoding.
 No document content is interpreted.
+
+## Outlook runtime and recovery
+
+`outlook_diagnostics` returns classic installation/running flags, current-session
+process count, configured-profile presence, new-Outlook running state and Windows
+PowerShell version. It never activates COM, reads account identities/mail or
+inspects windows. `computer_use_required` is false. No paths or profile names are
+returned. `next_action` identifies setup, startup, instance ambiguity or status.
+
+`outlook_start` explicitly starts the registered classic Outlook executable with
+an existing profile. It accepts no executable, command, profile or account input.
+It is idempotent, refuses missing installations/profiles and ambiguous instances,
+and does not log in, force sync or automate UI. A successful process launch is not
+a readiness check; call `outlook_status` next. Only this operation has
+`starts_client:true` in its description. Existing mail operations do not start it.
+
+| Error | Recovery |
+| --- | --- |
+| outlook_not_running | Run diagnostics, start once, then status and retry the operation |
+| outlook_busy | Retry the operation once after the client is ready |
+| outlook_start_timeout | Diagnose before another attempt; user handles any profile/login prompt |
+| outlook_profile_required | User configures/signs in to the intended classic profile |
+| outlook_access_denied / provider_timeout | Diagnose once; user handles any security, login or profile prompt |
+| runtime_unavailable | Check Windows PowerShell 5.1 and the existing script policy |
+
+Do not use Computer Use, screenshots, accessibility or mouse/keyboard automation
+as recovery. Do not kill Outlook, change security policies or switch clients.
+Normal Outlook startup/provider synchronization may still occur.

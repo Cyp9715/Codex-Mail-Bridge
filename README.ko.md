@@ -10,7 +10,7 @@
 창이 닫혀 있어도 기존 로컬 색인과 캐시를 읽을 수 있습니다.
 플러그인이 로그인하거나 암호를 요청하지 않습니다.
 
-현재 버전은 **0.9.3**이며 패키지 개발자 표기는 **Cyp**입니다.
+현재 버전은 **0.10.0**이며 패키지 개발자 표기는 **Cyp**입니다.
 
 ## 동작 방식
 
@@ -27,6 +27,25 @@ OpenAI에 전달될 수 있습니다. 로컬 실행이 GPT의 오프라인 처�
 - Outlook은 Windows, 클래식 Outlook 및 Windows PowerShell 5.1이 필요합니다.
   기존 스크립트 실행 정책과 Outlook 보안 정책을 그대로 따릅니다.
 - 새 Outlook, 웹 Outlook, Mac용 Outlook과 공유 배달 저장소는 지원하지 않습니다.
+
+## Outlook classic의 CLI 사용
+
+0.10.0은 Outlook 실행 상태 확인과 시작까지 CLI로 처리합니다. 메일 조회에
+Computer Use, 스크린샷, 마우스·키보드 자동화는 필요하지 않습니다.
+
+```powershell
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_diagnostics
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_start
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_status
+```
+
+진단은 COM을 활성화하거나 계정·메일을 읽지 않습니다. Outlook 시작은 설치된
+실행 파일과 기존 프로필을 이용하며, 이미 실행 중이면 그대로 둡니다.
+기존 검색·읽기 명령은 Outlook을 자동 실행하지 않습니다. 로그인·프로필 선택·보안
+경고가 필요하면 사용자가 직접 처리해야 하며, 에이전트가 화면 조작으로 우회하지
+않습니다. Outlook 자체 창이 표시될 수는 있으나 플러그인은 창을 조작하지 않습니다.
+Thunderbird 조회 구현과 기존 계정 선택은 유지됩니다.
+[릴리스 노트](docs/RELEASE_NOTES.md)를 참고하세요.
 
 ## 메일 조회와 파일 참조
 
@@ -66,7 +85,7 @@ Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 �
 
 ## 설치와 업데이트
 
-GitHub Release에서 **codex-mail-bridge-0.9.3-plugin.zip**을 받으세요.
+GitHub Release에서 **codex-mail-bridge-0.10.0-plugin.zip**을 받으세요.
 처음 추가할 때는 데스크톱 앱의 **새 플러그인** 창에서 ZIP을 그대로 선택합니다.
 등록 후 Mail Bridge 화면에 **플러그인 설치**가 표시되면 설치하고,
 새 로컬 대화에서 Mail Bridge를 선택하세요. 별도 설치 프로그램은 필요하지 않습니다.
@@ -97,7 +116,7 @@ Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션�
 있습니다. 필요한 명령의 스키마만 조회하고, 조건은 비공개 UTF-8 JSON 데이터
 파일로 전달합니다. [CLI 규약](docs/CLI.md)을 참고하세요.
 
-0.9.3 검증은 137개가 통과했고 기존 스크립트 정책으로 PowerShell 검사 1개를 건너뛰었습니다.
+0.10.0 검증은 137개가 통과했고 기존 스크립트 정책으로 PowerShell 검사 1개를 건너뛰었습니다.
 ZIP 구조·파일 일치와 격리된 로컬 설치·업데이트·원본 전달도 검증했습니다.
 계정 ZIP 업로드와 자동 스킬 호출은 로컬 CLI 검증과 구분합니다.
 0.9.0 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의

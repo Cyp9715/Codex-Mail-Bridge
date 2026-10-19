@@ -7,6 +7,12 @@ Retrieve evidence for the user's mail task. GPT interprets requests, dates, mail
 and documents; the bridge searches mail and delivers selected originals. It has
 no document parsers, OCR, remote service or MCP server.
 
+Use the local CLI for both clients. Do not invoke Computer Use, screenshots,
+accessibility APIs, mouse/keyboard automation or a browser to find, open or read
+mail, start Outlook, select folders or diagnose this bridge. Outlook classic
+exposes mail through Windows PowerShell/COM; its desktop UI need not be operated.
+If command execution is unavailable, report that local execution is required.
+
 Resolve the plugin root two directories above this SKILL.md. Quote absolute paths:
 
 ```text
@@ -20,11 +26,19 @@ verified Python executable and `<plugin-root>/server/bridge.py` with the same
 options. `MAIL_BRIDGE_PYTHON` overrides the runtime. Local command/file tools are
 required. Respect existing script/client policies.
 
-`--list` returns 19 names. Fetch only needed schemas with `--describe OPERATION`;
+`--list` returns 21 names. Fetch only needed schemas with `--describe OPERATION`;
 neither reads mail. Calls default to `{}`; supply private UTF-8 JSON data through
 `--arguments-file` or explicit `--arguments-stdin`. Never interpolate mail into
 executable commands. Remove private argument files after use. Each command exits
 with `{ok:true,result:...}` or `{ok:false,error:{error,code,retryable,next_action?,details?}}`.
+
+For Outlook, call `outlook_diagnostics` first; it returns installation/process
+flags without COM activation, account metadata or mail access. If its
+`next_action` is `start_outlook`, call `outlook_start` once for the user's Outlook
+mail task, then check `outlook_status`. This uses the installed App Paths entry
+and requires an existing profile; it never selects a profile or signs in. An
+already running client is left alone. Starting a process does not prove readiness.
+Other mail operations never start Outlook implicitly.
 
 Check the requested client's `thunderbird_status` or `outlook_status`; ask if the
 client is ambiguous. Without a selection, discover `thunderbird_profiles` then
@@ -38,6 +52,13 @@ with its window closed. Classic Outlook must remain running in its signed-in
 Windows profile and needs Windows PowerShell 5.1. New/web/Mac Outlook, additional
 archive stores and shared delivery stores are unsupported. Local results and an
 offline flag do not prove server sync completeness.
+
+On `outlook_not_running`, use that CLI diagnostic/start/status sequence once.
+On `outlook_busy`, retry the failed operation once. On a timeout or access denial,
+run diagnostics once, explain the exact error/action and ask the user to handle
+any Outlook login, profile selection or security prompt themselves. Do not read
+windows, click prompts, repeatedly start/retry, force sync, kill Outlook, change
+policies or switch clients. A script-policy/runtime blocker stays a blocker.
 
 Prefer `_search` with `field:"subject"` for subject requests; use `"body"`/`"any"`
 when content matching is needed. For a named topic or correspondent, start with

@@ -6,6 +6,79 @@ $ProgressPreference = 'SilentlyContinue'
 [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 
+function Get-SessionOutlookProcesses {
+    $sessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    return @(Get-Process -Name OUTLOOK -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $sessionId })
+}
+
+function Get-ClassicOutlookExecutable {
+    # App Paths is populated by Office setup. Check both registry views without
+    # guessing Office/PST paths or accepting executable/argument input from mail.
+    foreach ($hive in @([Microsoft.Win32.RegistryHive]::CurrentUser, [Microsoft.Win32.RegistryHive]::LocalMachine)) {
+        foreach ($view in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
+            $root = $null; $key = $null
+            try {
+                $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey($hive, $view)
+                $key = $root.OpenSubKey('SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\OUTLOOK.EXE')
+                if ($null -eq $key) { continue }
+                $path = ([string]$key.GetValue('')).Trim().Trim('"')
+                if ([IO.Path]::IsPathRooted($path) -and [IO.Path]::GetFileName($path) -ieq 'OUTLOOK.EXE' -and [IO.File]::Exists($path)) { return $path }
+            } finally {
+                if ($null -ne $key) { $key.Dispose() }
+                if ($null -ne $root) { $root.Dispose() }
+            }
+        }
+    }
+    return ''
+}
+
+function Test-OutlookProfileConfigured {
+    foreach ($path in @('HKCU:\Software\Microsoft\Office\16.0\Outlook\Profiles',
+                        'HKCU:\Software\Microsoft\Office\15.0\Outlook\Profiles',
+                        'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Windows Messaging Subsystem\Profiles')) {
+        if (@(Get-ChildItem -LiteralPath $path -ErrorAction SilentlyContinue).Count -gt 0) { return $true }
+    }
+    return $false
+}
+
+function Get-OutlookRuntimeState {
+    # No COM activation, profile/account discovery, mail access or window access.
+    $running = @(Get-SessionOutlookProcesses)
+    $sessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    $newOutlook = @(Get-Process -Name olk -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $sessionId })
+    $installed = [bool](Get-ClassicOutlookExecutable)
+    $configured = Test-OutlookProfileConfigured
+    $next = if ($running.Count -gt 1) { 'resolve_outlook_instances' }
+            elseif ($running.Count -eq 1) { 'check_selected_account' }
+            elseif (-not $installed) { 'install_classic_outlook' }
+            elseif (-not $configured) { 'user_setup_outlook_profile' }
+            else { 'start_outlook' }
+    return @{ classic_outlook_installed = $installed; classic_outlook_running = ($running.Count -gt 0)
+        classic_outlook_process_count = $running.Count; profile_configured = $configured
+        new_outlook_running = ($newOutlook.Count -gt 0); powershell_version = $PSVersionTable.PSVersion.ToString()
+        access_method = 'windows_powershell_com'; computer_use_required = $false; next_action = $next }
+}
+
+function Start-ClassicOutlook {
+    $running = @(Get-SessionOutlookProcesses)
+    if ($running.Count -gt 1) { throw 'outlook_instance_ambiguous' }
+    if ($running.Count -eq 1) { return @{ started = $false; already_running = $true; next_action = 'check_selected_account'; computer_use_required = $false } }
+    $executable = Get-ClassicOutlookExecutable
+    if (-not $executable) { throw 'classic_outlook_not_installed' }
+    if (-not (Test-OutlookProfileConfigured)) { throw 'outlook_profile_required' }
+    # Start the registered desktop client only. Do not choose a profile, log on,
+    # force sync, inspect windows, or handle any security/login prompts.
+    [void](Start-Process -FilePath $executable -WindowStyle Hidden -PassThru)
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        $running = @(Get-SessionOutlookProcesses)
+        if ($running.Count -gt 1) { throw 'outlook_instance_ambiguous' }
+        if ($running.Count -eq 1) { return @{ started = $true; already_running = $false; next_action = 'check_selected_account'; computer_use_required = $false } }
+        Start-Sleep -Milliseconds 200
+    } while ($watch.Elapsed.TotalSeconds -lt 10)
+    throw 'outlook_start_timeout'
+}
+
 function Get-RegisteredOutlookApplication {
     return [Runtime.InteropServices.Marshal]::GetActiveObject('Outlook.Application')
 }
@@ -18,8 +91,7 @@ function Get-RunningOutlookApplication {
         # Only recover a missing ROT entry, never security/other COM failures.
         if ($failure -isnot [Runtime.InteropServices.COMException] -or $failure.HResult -ne -2147221021) { throw }
     }
-    $sessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
-    $running = @(Get-Process -Name OUTLOOK -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $sessionId })
+    $running = @(Get-SessionOutlookProcesses)
     if ($running.Count -eq 0) { throw 'outlook_not_running' }
     if ($running.Count -ne 1) { throw 'outlook_instance_ambiguous' }
     # Outlook's COM activation reuses its existing single instance. Require an
@@ -304,6 +376,8 @@ function Get-ItemAttachments($Item, [string]$Fingerprint, [string]$RequestedId =
 }
 
 function Invoke-OutlookRequest($Request) {
+    if ($Request.operation -eq 'diagnostics') { return Get-OutlookRuntimeState }
+    if ($Request.operation -eq 'start') { return Start-ClassicOutlook }
     if ($Request.operation -notin @('accounts', 'validate', 'status', 'scan', 'read', 'attachments', 'attachment')) { throw 'unknown_operation' }
     $application = Get-RunningOutlookApplication
     $session = $application.Session
@@ -369,8 +443,14 @@ if (-not $LibraryOnly) {
         $result = Invoke-OutlookRequest $request
         @{ ok = $true; result = $result } | ConvertTo-Json -Depth 12 -Compress
     } catch {
-        $known = @('outlook_not_running', 'outlook_instance_ambiguous', 'selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'invalid_export_path', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed', 'body_changed')
+        $known = @('outlook_not_running', 'classic_outlook_not_installed', 'outlook_profile_required', 'outlook_start_timeout', 'outlook_instance_ambiguous', 'selection_changed', 'shared_delivery_store', 'unsupported_account_type', 'folder_outside_scope', 'folder_limit', 'invalid_message_id', 'message_outside_scope', 'unknown_operation', 'scan_limit', 'candidate_scan_timeout', 'protected_message', 'invalid_attachment_id', 'invalid_export_path', 'unsupported_attachment', 'attachment_data_unavailable', 'attachment_changed', 'body_changed')
         $code = if ($_.Exception.Message -in $known) { $_.Exception.Message } else { 'outlook_access_failed' }
+        $failure = $_.Exception
+        while ($failure.InnerException) { $failure = $failure.InnerException }
+        if ($failure -is [Runtime.InteropServices.COMException]) {
+            if ($failure.HResult -eq -2147024891) { $code = 'outlook_access_denied' }
+            elseif ($failure.HResult -in @(-2147418111, -2147417846)) { $code = 'outlook_busy' }
+        }
         @{ ok = $false; error = $code } | ConvertTo-Json -Compress
     }
 }

@@ -329,6 +329,39 @@ class OutlookTests(unittest.TestCase):
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_lifecycle_operations_do_not_require_or_change_account_selection(self):
+        with patch.object(outlook, "backend", return_value={"computer_use_required": False}) as backend, patch.object(outlook, "selection", side_effect=AssertionError("Lifecycle touched an account")):
+            self.assertFalse(outlook.diagnostics()["computer_use_required"])
+            self.assertFalse(outlook.start()["computer_use_required"])
+        self.assertEqual([call.args for call in backend.call_args_list], [("diagnostics",), ("start",)])
+
+    def test_runtime_failures_have_specific_cli_recovery_and_no_private_details(self):
+        cases = {
+            "outlook_not_running": ("start_outlook", False),
+            "classic_outlook_not_installed": ("install_classic_outlook", False),
+            "outlook_profile_required": ("user_setup_outlook_profile", False),
+            "outlook_start_timeout": ("run_outlook_diagnostics", True),
+            "outlook_access_denied": ("user_resolve_outlook_access", False),
+            "outlook_busy": ("retry_operation_once", True),
+            "outlook_access_failed": ("run_outlook_diagnostics", False),
+        }
+        for code, (action, retryable) in cases.items():
+            result = subprocess.CompletedProcess([], 0, json.dumps({"ok": False, "error": code}), "private diagnostic")
+            with self.subTest(code=code), patch.object(outlook.sys, "platform", "win32"), patch.object(outlook.subprocess, "run", return_value=result):
+                with self.assertRaises(BridgeError) as error:
+                    outlook.backend("status")
+                self.assertEqual(error.exception.next_action, action)
+                self.assertEqual(error.exception.retryable, retryable)
+                self.assertFalse(error.exception.details["computer_use_required"])
+                self.assertNotIn("private diagnostic", str(error.exception))
+
+    def test_invalid_success_result_is_rejected(self):
+        for data in ({"ok": True}, {"ok": True, "result": []}, ["invalid"]):
+            result = subprocess.CompletedProcess([], 0, json.dumps(data), "")
+            with patch.object(outlook.sys, "platform", "win32"), patch.object(outlook.subprocess, "run", return_value=result):
+                with self.assertRaises(BridgeError):
+                    outlook.backend("diagnostics")
+
     @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell syntax check")
     def test_powershell_sources_parse_without_executing_scripts(self):
         executable = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
@@ -378,6 +411,8 @@ class RuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(BridgeError, "security/access prompt") as error:
                 outlook.backend("accounts")
             self.assertNotIn("private path", str(error.exception))
+            self.assertEqual(error.exception.next_action, "user_check_outlook_then_retry")
+            self.assertFalse(error.exception.retryable)
         result = subprocess.CompletedProcess([], 0, '{"ok":false,"error":"shared_delivery_store"}', "private message")
         with patch.object(outlook.sys, "platform", "win32"), patch.object(outlook.subprocess, "run", return_value=result):
             with self.assertRaisesRegex(BridgeError, "share a delivery store"):

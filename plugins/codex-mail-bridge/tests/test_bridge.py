@@ -309,11 +309,12 @@ class BridgeTests(unittest.TestCase):
 
     def test_no_mail_write_operations_and_disclosed_local_side_effects(self):
         names = {operation["name"] for operation in bridge.OPERATIONS}
-        self.assertEqual(len(names), 19)
+        self.assertEqual(len(names), 21)
         for operation in bridge.OPERATIONS:
             self.assertIs(operation["mailbox_write"], False)
             expected = "selection" if operation["name"].endswith("_select_account") else "export" if operation["name"].endswith("_get_attachment") else "none"
             self.assertEqual(operation["local_write"], expected)
+            self.assertEqual(operation["starts_client"], operation["name"] == "outlook_start")
         for name in ("thunderbird_send", "thunderbird_delete", "thunderbird_attachment"):
             self.assertFalse(bridge.call_operation(name, {})["ok"])
 

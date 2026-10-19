@@ -73,7 +73,7 @@ class ContractTests(unittest.TestCase):
             self.assertIn('body_search_limit', schema['properties'])
         process, value = self.run_cli('--list')
         self.assertEqual(process.returncode, 0)
-        self.assertEqual(len(value['result']['operations']), 19)
+        self.assertEqual(len(value['result']['operations']), 21)
 
     def test_stdin_file_input_and_unknown_operations_fail_without_execution(self):
         for text in ('[]', '{"limit":true}', '{"jsonrpc":"2.0","method":"initialize"}'):

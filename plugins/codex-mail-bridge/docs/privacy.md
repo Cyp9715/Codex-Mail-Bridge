@@ -1,6 +1,6 @@
 # Privacy notice
 
-Mail Bridge · Cyp · effective October 17, 2026
+Mail Bridge · Cyp · effective October 19, 2026
 
 ## Local access
 
@@ -18,6 +18,13 @@ reads one original file and makes it available to the host as a private temporar
 local file; images stay as original files for explicit host viewing. The CLI returns no base64 or image pixels. No document parsing
 or OCR is performed. The bridge does not read password stores or create, send,
 save, delete, move, or mark mail as read.
+
+`outlook_diagnostics` reads only installation/profile-presence and process state;
+it returns no paths, profile names or account identities and does not activate COM.
+`outlook_start` can explicitly launch the installed classic client with an existing
+profile. It does not select a profile or account, log in, force sync or automate
+windows. The client may perform its usual startup/synchronization. Other operations
+do not start it. Login/profile/security prompts remain the user's responsibility.
 
 ## Local storage and network
 

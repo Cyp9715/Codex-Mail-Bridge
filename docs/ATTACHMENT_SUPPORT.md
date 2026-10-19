@@ -1,8 +1,8 @@
 # Original attachment handoff
 
-Version 0.9.3 retains the original-file handoff introduced in 0.4.0. It supports
+Version 0.10.0 retains the original-file handoff introduced in 0.4.0. It supports
 Thunderbird local MIME caches and classic Outlook by-value attachments. There are
-six attachment operations, for 19 local CLI operations in total; no MCP server is used.
+six attachment operations, for 21 local CLI operations in total; no MCP server is used.
 The bridge does not parse PDF, Word, Excel, archives or other document contents,
 perform OCR, execute files, or upload files to an OpenAI Files API.
 

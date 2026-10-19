@@ -97,7 +97,7 @@ def main():
             return response["result"]
 
         assert cli("--version")["version"] == version
-        assert len(cli("--list")["operations"]) == 19
+        assert len(cli("--list")["operations"]) == 21
         profile = cli("--call", "thunderbird_profiles")["profiles"][0]["id"]
         cli("--call", "thunderbird_select_account", data={"profile_id": profile, "account_id": "account1", "confirm": True})
         found = cli("--call", "thunderbird_search_attachments", data={"filename": "agenda.pdf", "after": "2026-10-01"})
