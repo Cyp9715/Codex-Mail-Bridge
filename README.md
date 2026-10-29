@@ -11,7 +11,7 @@ Sign in and sync needed mail in Thunderbird, enable its global search index and
 allow indexing to finish. The bridge can read the existing index and MIME caches
 with Thunderbird closed. It never starts Thunderbird, signs in or forces sync.
 
-Version 0.11.0 is dedicated to Thunderbird. Ten one-shot CLI operations use the
+Version 0.11.0 is dedicated to Thunderbird. Eleven one-shot CLI operations use the
 Python standard library through a packaged skill; Node.js is an optional launcher.
 There is no MCP server, network listener, Cyp backend or cloud mail connection.
 Retrieved account details, mail and files opened by the AI host can reach OpenAI
@@ -40,8 +40,9 @@ Example requests:
 - Summarize mail on specified weekdays in my timezone.
 - Find the relevant original proposals and compare their versions.
 
-The skill checks `thunderbird_status`. If no account is selected, it discovers
-profiles and accounts, then obtains an explicit account choice. It never selects
+The skill first runs `thunderbird_diagnostics` and explains any installation,
+profile, account or index setup it cannot confirm. It then checks `thunderbird_status`.
+If no account is selected, it discovers profiles and accounts and obtains an explicit account choice. It never selects
 all accounts or switches accounts based on mail content. Discovery shares personal
 profile/account metadata with the AI host.
 
@@ -50,6 +51,7 @@ profile/account metadata with the AI host.
 ```powershell
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --list
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --describe thunderbird_search
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call thunderbird_diagnostics
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call thunderbird_status
 ```
 
@@ -61,6 +63,7 @@ shell fragments. See the [CLI contract](docs/CLI.md).
 
 | Purpose | Operations |
 | --- | --- |
+| Setup check | `thunderbird_diagnostics` |
 | Setup | `thunderbird_profiles`, `thunderbird_accounts`, `thunderbird_select_account` |
 | Coverage | `thunderbird_status` |
 | Mail research | `thunderbird_search`, `thunderbird_read`, `thunderbird_thread` |
@@ -137,10 +140,19 @@ python scripts/package.py --output ./outputs
 
 Fixtures use reserved `.test` identities and generated files. The QA script's
 `pypdf` and `python-docx` are host-only dependencies, outside the plugin runtime.
-See [candidate validation](docs/RELEASE_VALIDATION.md) for evidence and limits.
+See [release validation](docs/RELEASE_VALIDATION.md) for evidence and limits.
 The source is MIT licensed. Packaging does not install or publish a hosted plugin.
 Follow [publication controls](docs/DEVELOPMENT_SECURITY.md).
 
 [Support](docs/support.md) · [Privacy](docs/privacy.md) · [Terms](docs/terms.md)
 
 Independent Cyp project; not affiliated with Mozilla or OpenAI.
+
+## Missing installation or account
+
+Run `thunderbird_diagnostics` first. If Thunderbird or a usable profile cannot be
+confirmed, the result explains installation/profile setup. If no supported account
+registration can be confirmed, it explains adding an IMAP/POP3 account or checking
+profile permissions. A missing index has separate indexing/sync guidance. Local
+account configuration does not prove live authentication. Existing usable caches
+remain accessible when an executable is not detected. See [setup guidance](docs/SETUP.md).

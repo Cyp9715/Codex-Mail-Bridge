@@ -21,6 +21,11 @@ launches Thunderbird, signs in, forces sync or changes application security poli
 It makes no network mail requests. Its results cover existing local index/cache
 data, which can be stale or incomplete.
 
+Diagnostics reads executable registrations and limited profile/account
+configuration, returning only aggregate counts and setup guidance. It opens no
+mail database and exposes no executable/profile paths or account identities.
+Installation detection and local account registration do not verify server login.
+
 ## Private storage
 
 `thunderbird.json` outside the plugin stores opaque profile/account IDs and an

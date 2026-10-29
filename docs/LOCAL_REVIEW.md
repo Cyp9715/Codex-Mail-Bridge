@@ -22,5 +22,5 @@ Originals are interpreted only through separately authorized host tools; a retur
 path is not proof that the document was read. Local execution does not make AI
 processing offline. See [privacy](privacy.md).
 
-[Validation](RELEASE_VALIDATION.md) records actual candidate checks and remaining
+[Validation](RELEASE_VALIDATION.md) records actual release checks and remaining
 platform/host limits. Earlier historical reports remain in existing immutable tags.

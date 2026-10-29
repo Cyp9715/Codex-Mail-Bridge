@@ -1,7 +1,7 @@
 # Install and update Thunderbird Mail Bridge
 
 Version 0.11.0 retains the package identity `codex-mail-bridge`. It contains one
-Thunderbird skill, ten local CLI operations and no MCP server. Python 3.10+ and
+Thunderbird skill, eleven local CLI operations and no MCP server. Python 3.10+ and
 local command/file access are required; Node.js is an optional launcher.
 
 ## Plugin archive
@@ -69,3 +69,12 @@ older Thunderbird selection; it does not migrate settings. Retrieved data and
 host-opened originals can reach the AI host under its own policies.
 
 See [validation](docs/RELEASE_VALIDATION.md) and [privacy](docs/privacy.md).
+
+## Missing installation or account
+
+Run `thunderbird_diagnostics` first. If Thunderbird or a usable profile cannot be
+confirmed, the result explains installation/profile setup. If no supported account
+registration can be confirmed, it explains adding an IMAP/POP3 account or checking
+profile permissions. A missing index has separate indexing/sync guidance. Local
+account configuration does not prove live authentication. Existing usable caches
+remain accessible when an executable is not detected. See [setup guidance](docs/SETUP.md).

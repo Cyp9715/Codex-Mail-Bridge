@@ -1,7 +1,7 @@
 # Thunderbird mail research workflows
 
-Use the local skill/CLI and the explicitly selected Thunderbird account. Check
-`thunderbird_status`; discover profiles/accounts only when selection is absent.
+Use the local skill/CLI and the explicitly selected Thunderbird account. Run
+`thunderbird_diagnostics`, follow its setup guidance, then check `thunderbird_status`; discover profiles/accounts only when selection is absent.
 An explicit account choice is required before selection. There is no mail-client
 choice, startup command or alternate retrieval route.
 

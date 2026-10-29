@@ -6,7 +6,7 @@
 GPT가 찾아 참고하도록 하는 로컬 데스크톱 플러그인입니다.**
 
 0.11.0은 Thunderbird 전용입니다. 기존 전역 검색 인덱스와 로컬 MIME 캐시를
-읽는 CLI 명령 10개로 구성됩니다. 먼저 Thunderbird에서 로그인하고 필요한 메일을
+읽는 CLI 명령 11개로 구성됩니다. 먼저 Thunderbird에서 로그인하고 필요한 메일을
 동기화한 뒤 전역 검색 인덱싱이 끝나도록 기다리세요. 인덱스와 캐시가 있으면
 Thunderbird 창을 닫아도 조회할 수 있습니다. 브리지가 로그인하거나 앱을 실행하고
 동기화를 강제하지는 않습니다.
@@ -41,6 +41,7 @@ Thunderbird 창을 닫아도 조회할 수 있습니다. 브리지가 로그인�
 ```powershell
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --list
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --describe thunderbird_search
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call thunderbird_diagnostics
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call thunderbird_status
 ```
 
@@ -50,6 +51,7 @@ JSON 파일이나 명시적 stdin으로 전달하며 메일 내용을 실행 명
 
 | 용도 | 명령 |
 | --- | --- |
+| 설치·계정 진단 | `thunderbird_diagnostics` |
 | 초기 설정 | `thunderbird_profiles`, `thunderbird_accounts`, `thunderbird_select_account` |
 | 선택 계정·인덱스 확인 | `thunderbird_status` |
 | 메일·대화 | `thunderbird_search`, `thunderbird_read`, `thunderbird_thread` |
@@ -91,3 +93,16 @@ MCP 서버·Cyp 백엔드·원격 메일 서비스·별도 API 키가 필요하�
 [검증 범위](docs/RELEASE_VALIDATION.md) · [지원](docs/support.md) · [개인정보](docs/privacy.md)
 
 Cyp의 독립 프로젝트이며 Mozilla나 OpenAI의 공식 제품이 아닙니다.
+
+## 설치·계정 등록이 확인되지 않는 경우
+
+먼저 `thunderbird_diagnostics`를 실행합니다. 설치가 탐지되지 않거나 등록된
+프로필이 없으면 Thunderbird 설치·초기 설정을 안내하고, 지원 계정이 확인되지
+않으면 Thunderbird에서 IMAP/POP3 계정을 추가하거나 설정 파일 접근 권한을
+확인하도록 안내합니다. 인덱스가 없을 때는 전역 검색 활성화·동기화·인덱싱을
+별도로 안내합니다. 진단 결과는 사용자 언어로 설명합니다.
+
+진단은 메일 본문·비밀번호를 읽지 않으며 계정 주소나 프로필 경로를 반환하지
+않습니다. 로컬 계정 설정 확인이 실제 로그인·인증 성공을 의미하지는 않습니다.
+이동식 설치 등을 탐지하지 못해도 기존 프로필과 캐시가 있으면 사용할 수 있습니다.
+상세 절차는 [설치·계정 안내](docs/SETUP.md)를 참고하세요.

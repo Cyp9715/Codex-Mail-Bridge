@@ -74,6 +74,7 @@ class ContractTests(unittest.TestCase):
         process, value = self.run_cli('--list')
         self.assertEqual(process.returncode, 0)
         self.assertEqual(value['result']['operations'], [
+            'thunderbird_diagnostics',
             'thunderbird_profiles', 'thunderbird_accounts', 'thunderbird_select_account',
             'thunderbird_status', 'thunderbird_search', 'thunderbird_read', 'thunderbird_thread',
             'thunderbird_search_attachments', 'thunderbird_list_attachments', 'thunderbird_get_attachment',

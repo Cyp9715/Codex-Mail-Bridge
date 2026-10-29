@@ -22,3 +22,5 @@ method for security details; no dedicated private disclosure channel or response
 time is guaranteed.
 
 [Privacy](privacy.md) · [Terms](terms.md)
+
+Start with `thunderbird_diagnostics` for installation/account guidance; see [setup and troubleshooting](SETUP.md).

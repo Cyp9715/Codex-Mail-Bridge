@@ -2,7 +2,7 @@
 
 Research mail, summarize conversations/date ranges and compare relevant original
 attachments from one explicitly selected Thunderbird account. A local skill invokes
-ten one-shot CLI operations against existing index/cache data. Python 3.10+ and
+eleven one-shot CLI operations against existing index/cache data. Python 3.10+ and
 local command/file access are required. There is no server or remote mail fetch.
 
 Sign in and sync needed mail in Thunderbird and let global indexing finish.
@@ -14,5 +14,7 @@ host-opened originals can reach the invoking AI service; local does not mean off
 - [Thunderbird compatibility](THUNDERBIRD_COMPATIBILITY.md)
 - [Research workflows](AGENT_WORKFLOWS.md)
 - [Original attachments](ATTACHMENT_SUPPORT.md)
-- [Candidate validation](RELEASE_VALIDATION.md)
+- [Release validation](RELEASE_VALIDATION.md)
 - [Privacy](privacy.md), [terms](terms.md) and [support](support.md)
+
+Start with `thunderbird_diagnostics` for installation/account guidance; see [setup and troubleshooting](SETUP.md).

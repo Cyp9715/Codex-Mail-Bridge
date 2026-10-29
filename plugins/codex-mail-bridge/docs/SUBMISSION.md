@@ -16,5 +16,5 @@ requirements through the supported service before a separate submission. A valid
 archive and local tests do not establish directory approval or installed-host routing.
 Do not invent a remote endpoint or hide the local-executor requirement.
 
-See [installation](../INSTALL.md), [candidate validation](RELEASE_VALIDATION.md)
+See [installation](../INSTALL.md), [release validation](RELEASE_VALIDATION.md)
 and [publication controls](DEVELOPMENT_SECURITY.md).

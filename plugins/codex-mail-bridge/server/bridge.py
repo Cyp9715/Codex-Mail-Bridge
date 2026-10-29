@@ -13,7 +13,7 @@ from mail_output import bounded_metadata, body_page, budget_bodies, folder_page,
 import thunderbird_attachments
 
 from accounts import (BridgeError, database, profiles, profile_by_id, read_accounts,
-                      select_account, selection_path)
+                      select_account, selection_path, diagnostics)
 
 UTC = timezone.utc
 VERSION = "0.11.0"
@@ -31,15 +31,23 @@ def stamp(value):
         return None
 
 def discover_profiles():
-    return {"profiles": [{"id": p["id"], "name": p["name"]} for p in profiles()],
-            "note": "Profile names may be personal. No messages are read during discovery."}
+    found = [{"id": p["id"], "name": p["name"]} for p in profiles()]
+    result = {"profiles": found, "note": "Profile names may be personal. No messages are read during discovery."}
+    if not found:
+        result["setup"] = diagnostics()
+    return result
 
 def discover_accounts(profile_id):
     profile = profile_by_id(profile_id)
-    return {"profile_id": profile_id, "accounts": [
+    result = {"profile_id": profile_id, "accounts": [
         {"id": a["id"], "emails": a["emails"], "server": a["host"], "type": a["type"]}
         for a in read_accounts(profile)],
         "note": "Ask the user which single account to select. Account metadata is returned to the AI host."}
+    if not result["accounts"]:
+        result["note"] = "No supported account registration could be confirmed in this profile. Do not ask the user to select from an empty list."
+        result["setup"] = {"code": "account_registration_unconfirmed", "next_action": "register_thunderbird_account",
+                           "guidance": "Open Thunderbird and add or complete an IMAP/POP3 account in this profile, then discover accounts again. Account authentication is not checked by the bridge."}
+    return result
 
 def scope(folders):
     ids = [folder["id"] for folder in folders]
@@ -86,7 +94,8 @@ def response(account, **values):
 
 def status(folder_limit=50, folder_offset=0):
     if not selection_path().is_file():
-        return {"configured": False, "next_step": "Use thunderbird_profiles, thunderbird_accounts, then explicitly select one account.", "notice": NOTICE}
+        setup = diagnostics()
+        return {"configured": False, "next_step": setup["guidance"], "setup": setup, "notice": NOTICE}
     with database() as (db, folders, profile, account):
         condition, values = scope(folders)
         rows = db.execute(
@@ -219,6 +228,7 @@ def integer(description, minimum, maximum):
 
 
 DEFINITIONS = [
+    ("thunderbird_diagnostics", "Check Thunderbird installation evidence, registered profile/account counts and index presence. Returns setup guidance without account identities, profile paths, mail access, client startup or login verification. Existing local caches remain usable if an executable is not detected.", {}, [], diagnostics),
     ("thunderbird_profiles", "Discover Thunderbird profiles on this computer. Returns profile names and opaque IDs, never mail contents or paths.", {}, [], discover_profiles),
     ("thunderbird_accounts", "List IMAP/POP3 account identities in one discovered profile. This reveals account addresses/server metadata to the AI host. No mail is read.", {
         "profile_id": string("Opaque profile ID from thunderbird_profiles.", 64),

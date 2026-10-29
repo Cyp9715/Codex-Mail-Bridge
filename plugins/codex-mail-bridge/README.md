@@ -1,7 +1,7 @@
 # Thunderbird Mail Bridge
 
 Find and reference mail, conversations and selected original attachments from one
-explicitly chosen Thunderbird account. Version 0.11.0 provides ten one-shot local
+explicitly chosen Thunderbird account. Version 0.11.0 provides eleven one-shot local
 CLI operations through a skill. Python 3.10+ and local command/file access are
 required; Node.js is an optional launcher. No MCP server or remote mail service
 is needed. See [installation and updates](INSTALL.md).
@@ -15,6 +15,7 @@ on Windows/macOS/Linux, with local compatibility validation still required.
 ```powershell
 node ./scripts/mail_bridge.cjs --list
 node ./scripts/mail_bridge.cjs --describe thunderbird_search
+node ./scripts/mail_bridge.cjs --call thunderbird_diagnostics
 node ./scripts/mail_bridge.cjs --call thunderbird_status
 ```
 
@@ -24,6 +25,7 @@ explicit stdin carry arguments as data. See the [CLI contract](docs/CLI.md).
 
 | Purpose | Operations |
 | --- | --- |
+| Setup check | `thunderbird_diagnostics` |
 | Setup | `thunderbird_profiles`, `thunderbird_accounts`, `thunderbird_select_account` |
 | Coverage | `thunderbird_status` |
 | Research | `thunderbird_search`, `thunderbird_read`, `thunderbird_thread` |
@@ -54,3 +56,12 @@ reach OpenAI; local execution does not make GPT offline.
 [Support](docs/support.md) · [Privacy](docs/privacy.md) · [Terms](docs/terms.md)
 
 Independent Cyp project; not affiliated with Mozilla or OpenAI. MIT licensed.
+
+## Missing installation or account
+
+Run `thunderbird_diagnostics` first. If Thunderbird or a usable profile cannot be
+confirmed, the result explains installation/profile setup. If no supported account
+registration can be confirmed, it explains adding an IMAP/POP3 account or checking
+profile permissions. A missing index has separate indexing/sync guidance. Local
+account configuration does not prove live authentication. Existing usable caches
+remain accessible when an executable is not detected. See [setup guidance](docs/SETUP.md).

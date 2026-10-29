@@ -2,12 +2,12 @@
 
 Version 0.11.0 · synthetic public evidence only
 
-The skill exposes ten one-shot CLI operations for Thunderbird. Schemas match
+The skill exposes eleven one-shot CLI operations for Thunderbird. Schemas match
 Python signatures, mailbox writes and client startup are false, and unrecognized
 operations fail without mailbox access. Synthetic fixtures exercise account
 scope, cache identity, Unicode continuation, provenance, host handoff and exports.
 
-Final candidate test counts and archive/install results are recorded in
+Release test counts and archive/install results are recorded in
 [validation](RELEASE_VALIDATION.md). No production mailbox evidence is published.
 
 ## Functional walkthrough

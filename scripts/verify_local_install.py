@@ -105,10 +105,14 @@ def main():
 
         assert cli("--version")["version"] == version
         assert cli("--list")["operations"] == [
+            "thunderbird_diagnostics",
             "thunderbird_profiles", "thunderbird_accounts", "thunderbird_select_account",
             "thunderbird_status", "thunderbird_search", "thunderbird_read", "thunderbird_thread",
             "thunderbird_search_attachments", "thunderbird_list_attachments", "thunderbird_get_attachment",
         ]
+        setup = cli("--call", "thunderbird_diagnostics")
+        assert setup["code"] == "selection_required" and setup["account_count"] == 3
+        assert setup["mail_read"] is False and setup["authentication_verified"] is False
         profile = cli("--call", "thunderbird_profiles")["profiles"][0]["id"]
         cli("--call", "thunderbird_select_account", data={"profile_id": profile, "account_id": "account1", "confirm": True})
         found = cli("--call", "thunderbird_search_attachments", data={"filename": "agenda.pdf", "after": "2026-10-01"})

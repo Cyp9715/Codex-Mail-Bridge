@@ -1,7 +1,7 @@
 # Thunderbird original attachment handoff
 
 Version 0.11.0 supports original files from safely mapped Thunderbird local MIME
-caches. Three attachment operations are part of the ten-operation CLI. The bridge
+caches. Three attachment operations are part of the eleven-operation CLI. The bridge
 does not parse PDF/DOCX/XLSX or archive contents, perform OCR, execute files or call
 an upload API. Host tools interpret selected originals separately.
 
@@ -78,4 +78,4 @@ then release the managed export. See [workflows](AGENT_WORKFLOWS.md).
 Synthetic checks cover metadata-only search, payload-free listing, duplicate names,
 byte/hash equality, custom mbox/maildir paths, identity/protection boundaries,
 cross-process retention, host reading and explicit release. No real mailbox data
-is required. See [candidate validation](RELEASE_VALIDATION.md).
+is required. See [release validation](RELEASE_VALIDATION.md).

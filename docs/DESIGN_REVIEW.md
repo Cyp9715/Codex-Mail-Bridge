@@ -21,7 +21,7 @@ an existing Python and exits after one operation.
 - Original export uses generated paths, bounded bytes, hashes, OS locks and explicit
   release/lazy expiry. Mailbox data and client/security settings remain untouched.
 
-The CLI exposes exactly ten Thunderbird operations. Direct attachment registration
+The CLI exposes exactly eleven Thunderbird operations. Direct attachment registration
 keeps schemas and callable signatures aligned. Both manifests share identity,
 version, presentation and local-executor requirements. Runtime inventory checks
 reject stale modules from overlay upgrades, and installed module bytes are verified.

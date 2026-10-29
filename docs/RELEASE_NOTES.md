@@ -1,8 +1,14 @@
 # Thunderbird Mail Bridge 0.11.0
 
-Candidate source update · October 29, 2026
+Release · October 29, 2026
 
-The project is dedicated to Thunderbird: ten local operations cover profile/account
+The new `thunderbird_diagnostics` operation checks installation evidence,
+registered profiles/accounts and index presence without mail access. Missing,
+unreadable or unconfirmed setup gets a concrete next action. Existing local
+caches stay usable when an executable is not detected; account configuration
+does not imply successful server authentication.
+
+The project is dedicated to Thunderbird: eleven local operations cover profile/account
 discovery, explicit selection, index status, mail search/read/conversations and
 original attachment search/list/get. Attachment definitions bind directly to the
 Thunderbird MIME cache adapter. No operation starts a mail client.
@@ -21,7 +27,7 @@ the installer verifies all installed runtime bytes. Upgrade from a clean plugin
 directory so removed source files cannot survive an overlay extraction. Existing
 private selection files outside the plugin need no deletion.
 
-Tests and candidate archives use synthetic data. See [validation](RELEASE_VALIDATION.md)
-for actual checks and limits. Creating archives does not install an account plugin,
-merge a branch or publish a version tag. A versioned release must tag its final
-release commit without moving existing tags.
+Tests and release archives use synthetic data. See [validation](RELEASE_VALIDATION.md)
+for actual checks and limits. The release includes plugin/source ZIPs and their SHA-256 checksums. The immutable
+version tag identifies the final main-branch release commit. Installing or
+updating an account-hosted plugin is a separate user action.

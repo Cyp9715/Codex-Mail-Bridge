@@ -1,6 +1,6 @@
 # Thunderbird local CLI contract
 
-Version 0.11.0 provides ten operations, each in one local process. Python 3.10+
+Version 0.11.0 provides eleven operations, each in one local process. Python 3.10+
 and host command/file permissions are required. There is no MCP transport,
 background process, client startup or network mail fetch.
 
@@ -12,6 +12,7 @@ From the plugin directory:
 node ./scripts/mail_bridge.cjs --version
 node ./scripts/mail_bridge.cjs --list
 node ./scripts/mail_bridge.cjs --describe thunderbird_search
+node ./scripts/mail_bridge.cjs --call thunderbird_diagnostics
 node ./scripts/mail_bridge.cjs --call thunderbird_status
 node ./scripts/mail_bridge.cjs --call thunderbird_search --arguments-file ./private-query.json
 node ./scripts/mail_bridge.cjs --release EXPORT_ID
@@ -20,7 +21,7 @@ node ./scripts/mail_bridge.cjs --cleanup
 
 Alternatively use a verified Python with `./server/bridge.py` and the same options.
 Resolve installed paths rather than assuming the repository working directory.
-`--list` returns ten names; `--describe` returns one schema and local side effects.
+`--list` returns eleven names; `--describe` returns one schema and local side effects.
 Neither reads mail. Every operation has `mailbox_write:false` and `starts_client:false`.
 
 Without an input option, `--call` uses `{}` without waiting on stdin. A private
@@ -43,6 +44,7 @@ credentials or binary payloads. CLI syntax errors use argument-parser help.
 
 | Purpose | Names |
 | --- | --- |
+| Setup check | `thunderbird_diagnostics` |
 | Setup | `thunderbird_profiles`, `thunderbird_accounts`, `thunderbird_select_account` |
 | Coverage | `thunderbird_status` |
 | Mail | `thunderbird_search`, `thunderbird_read`, `thunderbird_thread` |
@@ -109,3 +111,11 @@ than 600 seconds without evicting unexpired files. Calls use an OS lock; content
 returns retryable `export_busy`. `--release EXPORT_ID` deletes one generated file
 and its empty directory, never recursively. Locked files can remain. No background
 cleanup runs, and host/chat copies cannot be recalled.
+
+## Setup diagnostics
+
+`thunderbird_diagnostics` returns installation evidence, profile/account counts,
+index presence, a result `code`, `next_action` and explanatory `guidance`. It opens
+no mail database and returns no account identities or filesystem paths. Unreadable
+registries/profiles are distinct from absent installation. A saved selection is
+validated by status afterward. See [setup guidance](SETUP.md) for each state.

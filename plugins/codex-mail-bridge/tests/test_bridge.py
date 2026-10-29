@@ -324,7 +324,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_no_mail_write_operations_and_disclosed_local_side_effects(self):
         names = {operation["name"] for operation in bridge.OPERATIONS}
-        self.assertEqual(len(names), 10)
+        self.assertEqual(len(names), 11)
         for operation in bridge.OPERATIONS:
             self.assertIs(operation["mailbox_write"], False)
             expected = "selection" if operation["name"].endswith("_select_account") else "export" if operation["name"].endswith("_get_attachment") else "none"

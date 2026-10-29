@@ -47,4 +47,6 @@ Unicode matching/continuation, custom cache paths, mbox/maildir identity checks 
 original-file export. Platform discovery code is not proof of live compatibility
 on every operating system, packaging format or Thunderbird version. Installed-host
 routing and complete server synchronization require separate checks.
-See [candidate validation](RELEASE_VALIDATION.md).
+See [release validation](RELEASE_VALIDATION.md).
+
+Start with `thunderbird_diagnostics` for installation/account guidance; see [setup and troubleshooting](SETUP.md).
