@@ -1,83 +1,80 @@
-# Install and update the Mail Bridge plugin
+# Install and update Thunderbird Mail Bridge
 
-Use **codex-mail-bridge-0.10.0-plugin.zip** from the GitHub Release.
-This is a complete plugin package for the desktop app's **New Plugin** archive
-upload. Keep the ZIP intact; no separate installer is required for this workflow.
-The source ZIP is for development, not this upload dialog.
+Version 0.11.0 retains the package identity `codex-mail-bridge`. It contains one
+Thunderbird skill, eleven local CLI operations and no MCP server. Python 3.10+ and
+local command/file access are required; Node.js is an optional launcher.
 
-## First installation
+## Plugin archive
 
-1. Open Plugins in the desktop app and check whether Mail Bridge already exists
-   in the active account or workspace.
-2. If it does not exist, open **New Plugin**, choose the **plugin.zip**, and add it.
-3. Open Mail Bridge and select **Install plugin** if the host shows that action.
-4. Start a new local conversation and select Mail Bridge. Sign in and sync needed
-   mail in Thunderbird or classic Outlook first; keep classic Outlook running.
-5. Choose the intended mail client and account explicitly. Python 3.10+ and the
-   host's command/file permissions are required for the local mail operations.
+Use `codex-mail-bridge-0.11.0-plugin.zip` for a host that supports plugin archive
+installation or an existing plugin's update action. The source ZIP is for development.
+Check whether the plugin already exists before creating another entry. Preserve
+the existing plugin identity and sharing; reload or start a new local conversation
+after an update. Packaging by itself does not install an account-hosted plugin.
 
-## Updating an existing plugin
+The plugin declares local execution in both manifests. It cannot read a desktop
+mailbox from a cloud-only session. The package credits Cyp; an account service can
+also display its own account/developer identity.
 
-Keep the package name **codex-mail-bridge**. A new version does not require a new
-plugin identity. Use the existing plugin's update or upload-new-version action
-with the new **plugin.zip**, where the host makes that action available. The
-plugin's creator or an authorized workspace editor may need to apply the update.
-Reload the plugin or start a new conversation after updating it.
+Before use, sign in and sync needed mail in Thunderbird and allow global indexing
+to finish. Select one discovered profile/account explicitly. Its window may then
+be closed while existing local index/cache data remains available. The bridge
+does not start Thunderbird or sign in.
 
-The reported 0.9.1 failure in **New Plugin** was traced by the user to an existing
-plugin with the same name. That dialog creates a plugin; it is not an in-place
-upgrade. Check for an existing entry before retrying the same archive. Changing
-the version or developer credit does not turn creation into an update.
+## Source updates must replace the complete release
 
-If the host only offers creation, replacement requires deliberately removing the
-old entry first. Uninstalling and deleting an account plugin may be different
-host actions. Save its package and review sharing before deleting an entry;
-replacement can affect its link and collaborators. Prefer the update path.
-This package does not delete plugins or change account settings automatically.
+Extract each source ZIP into a clean staging folder. Replace the complete
+registered source distribution at the same source-root location, including
+`scripts/`, `.agents/`, documentation and `plugins/codex-mail-bridge`. Replacing
+only the plugin subtree leaves the old installer and its old checks in place.
+Replace release-owned directories from the clean extraction rather than overlaying
+their contents, so removed files cannot remain. Preserve unrelated development
+work separately; Thunderbird profiles and private selection settings are outside
+the release and must not be removed.
 
-The bridge's private mail-account selection settings live outside the plugin.
-Do not delete those settings merely to update the plugin package.
+For a Git checkout, update through Git so tracked file deletions and the new
+root-level helper are applied together. Run the helper from the updated source,
+then reload the plugin through the supported host workflow.
 
-## Developer credit
+The optional installer checks the exact six-module Thunderbird runtime and rejects
+unexpected or missing runtime files in source or installed copies. It verifies
+every runtime module's bytes as well as the manifests, launcher and skill.
+An old module left by overlay extraction must be removed by replacing the plugin
+directory with the clean package, then retrying the supported install/update flow.
+The helper does not delete installed files or edit plugin caches itself.
 
-Both manifests set **author.name** and **interface.developerName** to **Cyp**,
-and the About description explicitly credits Cyp. The desktop account service
-can supply its own developer label for the plugin record. A name shown by that
-service is not evidence that a different author string is present in this ZIP.
-There is no supported package field here that forces a change to account identity.
+For intentional local marketplace development, use an existing compatible Codex
+CLI with the source helper:
 
-A display-name change on the creating account may affect that label, but refresh
-behavior for existing plugin records has not been verified. Do not change a shared
-account or workspace name solely to change this plugin's credit. Public-directory
-submissions separately use the selected verified developer identity; see the
-[official submission reference](https://developers.openai.com/plugins/deploy/submission-errors#zip-upload-errors-and-warnings).
+```powershell
+node ./scripts/install-local.cjs --check
+node ./scripts/install-local.cjs
+```
 
-## Downloads and verification
+`install-local.cmd` is the Windows wrapper. These source-only helpers register the
+complete extracted repository and call the supported plugin installation command.
+Use a permanent source location and keep its marketplace identity `cyp-soft-local`.
+They do not upload an archive, publish a release or change the user's account choice.
+
+## Files and settings
 
 | File | Purpose |
 | --- | --- |
-| `codex-mail-bridge-0.10.0-plugin.zip` | Upload one self-contained Mail Bridge plugin |
-| `codex-mail-bridge-0.10.0-source.zip` | Repository source, tests and optional development helpers |
-| `SHA256SUMS` | Verify the downloaded release archives |
+| `codex-mail-bridge-0.11.0-plugin.zip` | One self-contained desktop plugin |
+| `codex-mail-bridge-0.11.0-source.zip` | Source, tests and optional installation helpers |
 
-The plugin ZIP includes its portable manifest, Codex compatibility manifest,
-skill, scripts, assets and documentation. The mail operations run locally;
-uploading a plugin package does not upload the user's mailbox. Mail and files
-retrieved later for an authorized task can reach the AI host.
+The plugin's `thunderbird.json` selection and private exports live outside the
+package. Preserve those settings when updating. A read-only call can reuse an
+older Thunderbird selection; it does not migrate settings. Retrieved data and
+host-opened originals can reach the AI host under its own policies.
 
-## Optional repository development
+See [validation](docs/RELEASE_VALIDATION.md) and [privacy](docs/privacy.md).
 
-Developers who intentionally use a local marketplace can register the Git source:
+## Missing installation or account
 
-```powershell
-codex plugin marketplace add Cyp9715/Codex-Mail-Bridge --ref v0.10.0
-codex plugin add codex-mail-bridge@cyp-soft-local
-```
-
-The source archive retains `install-local.cmd` and `scripts/install-local.cjs`
-for that optional workflow. Extract it into a permanent folder before using the
-helper. Reuse the same registered folder for later updates; a second folder with
-the same marketplace name can conflict. These helpers are not in the plugin ZIP,
-and their successful execution does not verify an account-service upload.
-
-See [release validation](docs/RELEASE_VALIDATION.md) for tested behavior and limits.
+Run `thunderbird_diagnostics` first. If Thunderbird or a usable profile cannot be
+confirmed, the result explains installation/profile setup. If no supported account
+registration can be confirmed, it explains adding an IMAP/POP3 account or checking
+profile permissions. A missing index has separate indexing/sync guidance. Local
+account configuration does not prove live authentication. Existing usable caches
+remain accessible when an executable is not detected. See [setup guidance](docs/SETUP.md).

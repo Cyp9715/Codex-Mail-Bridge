@@ -1,134 +1,108 @@
-# Mail Bridge
+# Thunderbird Mail Bridge for Codex
 
 [English](README.md)
 
-**이 컴퓨터에 로그인된 Thunderbird 또는 클래식 Outlook의 메일을 GPT가
-찾아보고 참조하도록 돕는 데스크톱 전용 플러그인입니다. Office 2019도 지원합니다.**
+**이 컴퓨터의 Thunderbird 계정 하나를 명시적으로 선택해 메일·대화·원본 첨부를
+GPT가 찾아 참고하도록 하는 로컬 데스크톱 플러그인입니다.**
 
-사용 전에 메일 클라이언트에서 로그인하고 필요한 메일을 동기화하세요.
-클래식 Outlook은 로그인된 프로필로 실행 중이어야 합니다. Thunderbird는
-창이 닫혀 있어도 기존 로컬 색인과 캐시를 읽을 수 있습니다.
-플러그인이 로그인하거나 암호를 요청하지 않습니다.
+0.11.0은 Thunderbird 전용입니다. 기존 전역 검색 인덱스와 로컬 MIME 캐시를
+읽는 CLI 명령 11개로 구성됩니다. 먼저 Thunderbird에서 로그인하고 필요한 메일을
+동기화한 뒤 전역 검색 인덱싱이 끝나도록 기다리세요. 인덱스와 캐시가 있으면
+Thunderbird 창을 닫아도 조회할 수 있습니다. 브리지가 로그인하거나 앱을 실행하고
+동기화를 강제하지는 않습니다.
 
-현재 버전은 **0.10.0**이며 패키지 개발자 표기는 **Cyp**입니다.
+## 준비와 설치
 
-## 동작 방식
+- 명령 실행과 파일 읽기가 가능한 로컬 데스크톱 세션이 필요합니다.
+- Python 3.10 이상이 필요하며 Node.js 실행기는 선택 사항입니다.
+- 등록된 Thunderbird 프로필의 IMAP/POP3 계정을 하나 선택합니다.
+- 메일 검색은 `global-messages-db.sqlite`, 원본 첨부는 해당 계정의 로컬
+  mbox/maildir 캐시가 필요합니다.
+- Windows·macOS·Linux와 Snap·Flatpak 프로필 등록 위치를 탐색합니다.
+  다른 운영체제와 프로필 구성의 실제 호환성은 개별 확인이 필요합니다.
 
-0.7.0부터 MCP 서버 없이 **스킬과 로컬 스크립트**로 동작합니다.
-GPT가 필요한 조회 명령을 실행하고 작은 JSON 결과를 참조합니다.
-별도의 원격 서버, 네트워크 수신 포트, Cyp의 백엔드는 없습니다.
-조회한 계정 정보와 메일 본문, 호스트에서 연 파일은 요청 처리를 위해
-OpenAI에 전달될 수 있습니다. 로컬 실행이 GPT의 오프라인 처리를 뜻하지 않습니다.
+[설치·업데이트 안내](INSTALL.md)를 따르세요. 패키지 이름은 `codex-mail-bridge`를
+유지합니다. 이전 소스 위에 압축을 덮어 풀면 삭제된 파일이 남을 수 있으므로,
+깨끗한 위치에 풀어 플러그인 디렉터리를 교체하세요. 기존에 승인한 Thunderbird
+계정 선택은 패키지 외부의 개인 설정에 보관되므로 재사용할 수 있습니다.
 
-- 명령 실행과 파일 읽기가 허용된 **로컬 데스크톱 대화**가 필요합니다.
-  웹·모바일·클라우드 전용 대화에서는 PC의 메일함에 접근할 수 없습니다.
-- Python 3.10+가 필요합니다. 선택적인 Node.js 실행기는 설치된 Python을 찾으며
-  런타임이나 의존성을 다운로드하지 않습니다.
-- Outlook은 Windows, 클래식 Outlook 및 Windows PowerShell 5.1이 필요합니다.
-  기존 스크립트 실행 정책과 Outlook 보안 정책을 그대로 따릅니다.
-- 새 Outlook, 웹 Outlook, Mac용 Outlook과 공유 배달 저장소는 지원하지 않습니다.
+사용 예:
 
-## Outlook classic의 CLI 사용
+- 선택한 Thunderbird 계정에서 10월 이후 Project Aurora 관련 메일을 찾아줘.
+- 보낸 메일과 받은 메일을 함께 검토해서 합의된 마감일을 정리해줘.
+- 내 시간대의 지정한 요일에 해당하는 메일을 요약해줘.
+- 관련 제안서 원본을 찾아 버전별 변경 사항을 비교해줘.
 
-0.10.0은 Outlook 실행 상태 확인과 시작까지 CLI로 처리합니다. 메일 조회에
-Computer Use, 스크린샷, 마우스·키보드 자동화는 필요하지 않습니다.
+계정이 선택되지 않았다면 프로필과 계정을 확인하고 사용자의 명시적 선택을
+받습니다. 메일 내용만 보고 계정을 바꾸거나 모든 계정을 함께 검색하지 않습니다.
 
-```powershell
-node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_diagnostics
-node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_start
-node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_status
-```
-
-진단은 COM을 활성화하거나 계정·메일을 읽지 않습니다. Outlook 시작은 설치된
-실행 파일과 기존 프로필을 이용하며, 이미 실행 중이면 그대로 둡니다.
-기존 검색·읽기 명령은 Outlook을 자동 실행하지 않습니다. 로그인·프로필 선택·보안
-경고가 필요하면 사용자가 직접 처리해야 하며, 에이전트가 화면 조작으로 우회하지
-않습니다. Outlook 자체 창이 표시될 수는 있으나 플러그인은 창을 조작하지 않습니다.
-Thunderbird 조회 구현과 기존 계정 선택은 유지됩니다.
-[릴리스 노트](docs/RELEASE_NOTES.md)를 참고하세요.
-
-## 메일 조회와 파일 참조
-
-사용자가 고른 클라이언트의 계정 하나만 명시적으로 선택합니다.
-허락 없이 계정을 바꾸거나 여러 계정을 합쳐 조회하지 않습니다.
-기존에 선택한 계정과 설정은 유지됩니다.
-
-기간 시작·종료, 제목, 본문, 발신자, 수신자, 폴더, 첨부파일 이름으로 검색할 수
-있습니다. GPT가 사용자의 날짜 표현과 시간대를 해석하고 명시적인
-`after`/`before` 값으로 조회합니다. 시작은 포함, 종료는 제외이며 어느 쪽이든
-생략할 수 있습니다. 날짜 또는 시간대 오프셋이 있는 RFC 3339 시각을 받습니다.
-
-검색은 기본적으로 작은 메타데이터 페이지를 반환합니다. `field:"metadata"`는
-제목·발신자·수신자·파일명만 검색하며 본문을 읽지 않습니다. 중복 식별 키는 후보를
-구분하는 정보이며, 플러그인이 메일을 자동으로 합치지는 않습니다. 필요한 본문 구간과
-대화만 추가로 읽습니다. 넓은 조회는 페이지, Outlook 후보 구간, 기간·폴더 분할로
-이어갈 수 있습니다. 작은 기본값이 사용자 작업 전체의 범위를 제한하지 않습니다.
-불완전한 검색, 잘린 본문, 오래된 색인 여부를 GPT에 명시합니다.
-
-첨부파일은 이름·제목·기간 등으로 후보를 좁힌 뒤 한 메일의 목록을 확인하고,
-필요한 **원본 파일만** 전달합니다. PDF·Word·Excel 내용을 플러그인에서 파싱하지
-않으며, 호스트의 파일 도구가 읽도록 원본 경로와 크기·SHA-256을 제공합니다.
-메일 속 이미지도 원본으로 전달하고 필요할 때 호스트 이미지 도구로 봅니다.
-Base64나 이미지 픽셀을 JSON 응답에 넣지 않습니다. 호스트가 실제로 파일을
-읽었는지는 전달 성공과 별도로 확인해야 합니다.
-
-원본은 기본 10 MiB이며, 필요한 파일은 `max_bytes`로 최대 100 MiB까지 허용할 수 있습니다.
-최대 16개를 비공개 로컬 export 경로에 보관합니다.
-짧은 명령 프로세스가 끝나도 읽을 수 있으며, 사용 후 export ID로 정리합니다.
-10분 경과 후 다음 export나 명시적 정리에서 삭제합니다. 보관 한도가 차면
-아직 만료되지 않은 파일을 지우지 않고 사용 완료 파일의 정리를 요청합니다.
-잠긴 파일이나 이후 정리가 실행되지 않은 파일은 남을 수 있습니다.
-
-메일 발송·초안 저장·삭제·이동·읽음 변경·강제 동기화·보안 설정 변경은 하지
-않습니다. 답장 초안은 채팅에만 작성합니다. 계정 선택은 플러그인 자체 설정을,
-첨부파일 조회는 선택한 원본의 임시 사본만 기록합니다.
-
-## 설치와 업데이트
-
-GitHub Release에서 **codex-mail-bridge-0.10.0-plugin.zip**을 받으세요.
-처음 추가할 때는 데스크톱 앱의 **새 플러그인** 창에서 ZIP을 그대로 선택합니다.
-등록 후 Mail Bridge 화면에 **플러그인 설치**가 표시되면 설치하고,
-새 로컬 대화에서 Mail Bridge를 선택하세요. 별도 설치 프로그램은 필요하지 않습니다.
-
-**이미 같은 이름의 플러그인이 있다면 새로 생성하지 말고 기존 항목을 업데이트하세요.**
-보고된 0.9.1 추가 오류는 사용자가 기존 동일 이름 플러그인과의 충돌로 확인했습니다.
-기존 항목에 제공되는 업데이트·새 버전 업로드 기능을 사용하고, 패키지 이름
-`codex-mail-bridge`는 유지하세요. 업데이트 기능이 없어 교체해야 한다면 기존
-항목 삭제에 앞서 패키지와 공유 범위를 확인해야 합니다. [설치 안내](INSTALL.md)를 참고하세요.
-
-ZIP의 두 manifest와 About 설명은 개발자를 **Cyp**로 명시합니다.
-계정에 등록된 플러그인의 개발자 표기는 호스트 서버가 별도로 제공할 수 있으며,
-ZIP의 작성자명을 수정해도 업로드 계정의 이름이나 신원이 변경되지는 않습니다.
-소스 ZIP과 Git 마켓플레이스는 개발자를 위한 선택 사항으로 유지합니다.
-
-0.9.0은 본문을 읽지 않는 메타데이터 검색, 중복 후보 식별, 폴더 용도, 원본 출처
-정보와 대화·요일별 정리·문서 버전 비교 안내를 보강했습니다. Thunderbird의 오래된 mbox는 `cache_scan_offset`으로 이어서
-찾고 `cache_scan_bytes`로 탐색 범위를 넓힐 수 있습니다. Maildir도
-`maildir_scan_offset`으로 이어서 찾고 `maildir_scan_limit`을 조절할 수 있습니다.
+## CLI와 조회 흐름
 
 ```powershell
 node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --list
-node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --describe outlook_search
-node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call outlook_status
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --describe thunderbird_search
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call thunderbird_diagnostics
+node ./plugins/codex-mail-bridge/scripts/mail_bridge.cjs --call thunderbird_status
 ```
 
-Node가 없다면 확인된 Python으로 `server/bridge.py`에 동일한 옵션을 전달할 수
-있습니다. 필요한 명령의 스키마만 조회하고, 조건은 비공개 UTF-8 JSON 데이터
-파일로 전달합니다. [CLI 규약](docs/CLI.md)을 참고하세요.
+Node.js 없이도 검증된 Python으로 `server/bridge.py`에 같은 인자를 전달할 수
+있습니다. `--list`와 `--describe`는 메일을 읽지 않습니다. 입력값은 비공개 UTF-8
+JSON 파일이나 명시적 stdin으로 전달하며 메일 내용을 실행 명령에 삽입하지 않습니다.
 
-0.10.0 검증은 137개가 통과했고 기존 스크립트 정책으로 PowerShell 검사 1개를 건너뛰었습니다.
-ZIP 구조·파일 일치와 격리된 로컬 설치·업데이트·원본 전달도 검증했습니다.
-계정 ZIP 업로드와 자동 스킬 호출은 로컬 CLI 검증과 구분합니다.
-0.9.0 배포 ZIP의 CLI로 실제 Thunderbird와 클래식 Outlook의
-검색·본문 이어 읽기·대화·첨부 원본 전달을 확인했고, 표본 Outlook 메일의 읽음 상태도 유지됐습니다.
-실행 중인 Outlook의 COM 연결 보완도 유지합니다. 다른 PC·공급자와 새 설치본의
-자동 스킬 호출 검증은 남아 있습니다. [검증 범위와 ZIP 설치 안내](docs/RELEASE_VALIDATION.md)를 참고하세요.
-소스는 MIT 라이선스이며 공개 디렉터리의 승인과 별개입니다.
+| 용도 | 명령 |
+| --- | --- |
+| 설치·계정 진단 | `thunderbird_diagnostics` |
+| 초기 설정 | `thunderbird_profiles`, `thunderbird_accounts`, `thunderbird_select_account` |
+| 선택 계정·인덱스 확인 | `thunderbird_status` |
+| 메일·대화 | `thunderbird_search`, `thunderbird_read`, `thunderbird_thread` |
+| 원본 첨부 | `thunderbird_search_attachments`, `thunderbird_list_attachments`, `thunderbird_get_attachment` |
 
-현재 버전은 로컬 Git 마켓플레이스와 ZIP 배포에 집중합니다.
-OpenAI 공개 제출 포털 없이 로컬 설치할 수 있습니다.
-[에이전트 활용과 데이터 형식](docs/AGENT_WORKFLOWS.md) 및 [로컬 설계 검토](docs/LOCAL_REVIEW.md)에 개선 내용과 남은 검증 범위를 기록했습니다.
+제목·메타데이터를 먼저 검색하고 필요할 때 본문까지 넓힙니다. 검색어의 모든
+단어가 부분 문자열로 일치해야 합니다. GPT가 날짜와 시간대를 계산해 시작 포함
+`after`, 끝 제외 `before`를 전달합니다. 날짜만 쓰면 UTC 자정입니다. 결과 페이지와
+본문 이어 읽기를 끝까지 확인해야 넓은 요청을 충족할 수 있습니다. Thunderbird의
+날짜는 인덱스에 기록된 메시지 날짜이며 별도 수신 시각을 보장하지 않습니다.
 
-[지원](docs/support.md) · [개인정보](docs/privacy.md) · [이용약관](docs/terms.md)
+첨부 검색은 파일명 메타데이터만 조회합니다. 후보 메일 하나의 첨부 목록을 확인한
+뒤 필요한 원본만 가져옵니다. 선택 계정·메시지 식별 정보와 캐시가 일치해야 합니다.
+캐시가 없거나 모호하면 실패하며 네트워크에서 대신 내려받지 않습니다.
 
-Mozilla·Microsoft·OpenAI와 제휴하지 않은 Cyp의 독립 프로젝트입니다.
+원본은 기본 10 MiB, 명시적 요청 시 최대 100 MiB까지 개인 임시 경로로 전달됩니다.
+바이트 수·SHA-256·원본 출처가 함께 반환됩니다. PDF·문서 분석과 이미지 열람은
+호스트 도구가 별도로 수행합니다. 브리지는 문서 파싱·OCR·첨부 실행을 하지 않습니다.
+최대 16개를 유지하며 사용이 끝난 파일은 `--release EXPORT_ID`로 해제합니다.
+이후 내보내기나 `--cleanup`이 10분 지난 파일을 정리합니다. 백그라운드 삭제는 없고,
+잠긴 파일이나 호스트·대화에 이미 전달된 사본은 남을 수 있습니다.
+
+## 개인정보와 범위
+
+메일함은 읽기 전용입니다. 발송·임시저장·삭제·이동·읽음 표시·강제 동기화·보안
+정책 변경 기능은 없습니다. 답장 초안은 대화 안에만 작성합니다. 로컬 인덱스와
+캐시가 오래됐거나 불완전할 수 있으므로 검색 결과 없음이 서버 메일 없음은 아닙니다.
+
+MCP 서버·Cyp 백엔드·원격 메일 서비스·별도 API 키가 필요하지 않습니다. 다만
+조회한 계정 정보·메일과 호스트가 연 파일은 요청 처리 과정에서 OpenAI로 전달될
+수 있습니다. 로컬 실행이 GPT의 오프라인 처리를 뜻하지는 않습니다.
+
+`THUNDERBIRD_HOME`은 프로필 등록 위치, `MAIL_BRIDGE_THUNDERBIRD_SETTINGS`는
+개인 선택 설정 위치를 지정합니다. 기존 `THUNDERBIRD_BRIDGE_SETTINGS`도 지원합니다.
+비밀번호·메일·프로필 절대경로는 선택 설정에 저장하지 않습니다. 기본 위치와
+이전 버전 설정 호환성은 [영문 안내](README.md)에 있습니다.
+
+[CLI 계약](docs/CLI.md) · [Thunderbird 호환성](docs/THUNDERBIRD_COMPATIBILITY.md) ·
+[검증 범위](docs/RELEASE_VALIDATION.md) · [지원](docs/support.md) · [개인정보](docs/privacy.md)
+
+Cyp의 독립 프로젝트이며 Mozilla나 OpenAI의 공식 제품이 아닙니다.
+
+## 설치·계정 등록이 확인되지 않는 경우
+
+먼저 `thunderbird_diagnostics`를 실행합니다. 설치가 탐지되지 않거나 등록된
+프로필이 없으면 Thunderbird 설치·초기 설정을 안내하고, 지원 계정이 확인되지
+않으면 Thunderbird에서 IMAP/POP3 계정을 추가하거나 설정 파일 접근 권한을
+확인하도록 안내합니다. 인덱스가 없을 때는 전역 검색 활성화·동기화·인덱싱을
+별도로 안내합니다. 진단 결과는 사용자 언어로 설명합니다.
+
+진단은 메일 본문·비밀번호를 읽지 않으며 계정 주소나 프로필 경로를 반환하지
+않습니다. 로컬 계정 설정 확인이 실제 로그인·인증 성공을 의미하지는 않습니다.
+이동식 설치 등을 탐지하지 못해도 기존 프로필과 캐시가 있으면 사용할 수 있습니다.
+상세 절차는 [설치·계정 안내](docs/SETUP.md)를 참고하세요.

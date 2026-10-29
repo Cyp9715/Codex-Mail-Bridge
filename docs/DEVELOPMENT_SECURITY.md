@@ -3,7 +3,7 @@
 Public source, fixtures, screenshots, commit messages, PRs, issues, logs and review
 recordings must use synthetic mail only. Example addresses use `.test`. Keep real
 addresses, company identifiers, subjects, bodies, attachment names, credentials,
-settings, message/store IDs, local paths and private audit evidence out of releases.
+settings, message/profile IDs, local paths and private audit evidence out of releases.
 Mail retrieval for an authorized user and publishing development artifacts are
 separate actions. Do not send protected addresses or phrases to GitHub search:
 download the permitted repository data and compare locally.

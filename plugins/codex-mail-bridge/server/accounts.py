@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import sys
 import time
@@ -69,15 +70,22 @@ def profile_roots():
             Path.home() / ".var/app/org.mozilla.Thunderbird/.thunderbird"]
 
 
-def profiles():
+def profiles(*, diagnostic_state=None):
     found = {}
+    state = diagnostic_state if diagnostic_state is not None else {}
+    state.update(registries_unreadable=0, profiles_unavailable=0)
     for root in profile_roots():
         registry = root / "profiles.ini"
-        if not registry.is_file():
+        try:
+            if not registry.is_file():
+                continue
+        except OSError:
+            state["registries_unreadable"] += 1
             continue
         parser = configparser.ConfigParser(interpolation=None)
         try:
-            parser.read(registry, encoding="utf-8-sig")
+            with registry.open(encoding="utf-8-sig") as source:
+                parser.read_file(source)
             for section in parser.sections():
                 if not section.startswith("Profile") or not parser.has_option(section, "Path"):
                     continue
@@ -85,21 +93,130 @@ def profiles():
                 path = Path(value).expanduser()
                 if parser.get(section, "IsRelative", fallback="1") == "1":
                     path = root / path
-                path = path.resolve()
-                if not (path / "prefs.js").is_file():
+                try:
+                    path = path.resolve()
+                    available = (path / "prefs.js").is_file()
+                except OSError:
+                    state["profiles_unavailable"] += 1
+                    continue
+                if not available:
+                    state["profiles_unavailable"] += 1
                     continue
                 token = "p_" + hashlib.sha256(str(path).encode()).hexdigest()[:16]
                 found[token] = {"id": token, "name": parser.get(section, "Name", fallback=section), "path": path}
         except (OSError, UnicodeError, configparser.Error):
+            state["registries_unreadable"] += 1
             continue
     return list(found.values())
+
+
+def _installation_candidates():
+    """Read executable registrations only; never execute a mail client."""
+    candidates = []
+    for name in ("thunderbird", "thunderbird.exe"):
+        located = shutil.which(name)
+        if located:
+            candidates.append(Path(located))
+    if sys.platform == "win32":
+        import winreg
+        for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
+                try:
+                    with winreg.OpenKey(hive, r"Software\Microsoft\Windows\CurrentVersion\App Paths\thunderbird.exe",
+                                        0, winreg.KEY_READ | view) as key:
+                        value, _ = winreg.QueryValueEx(key, "")
+                    if isinstance(value, str) and value.strip():
+                        candidates.append(Path(os.path.expandvars(value.strip().strip('"'))))
+                except OSError:
+                    continue
+        for variable in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
+            base = os.environ.get(variable)
+            if base:
+                candidates.append(Path(base) / "Mozilla Thunderbird/thunderbird.exe")
+    elif sys.platform == "darwin":
+        candidates.extend([Path("/Applications/Thunderbird.app/Contents/MacOS/thunderbird"),
+                           Path.home() / "Applications/Thunderbird.app/Contents/MacOS/thunderbird"])
+    else:
+        candidates.extend([Path("/snap/bin/thunderbird"), Path("/var/lib/snapd/snap/bin/thunderbird"),
+                           Path("/var/lib/flatpak/app/org.mozilla.Thunderbird/current/active/files/bin/thunderbird"),
+                           Path.home() / ".local/share/flatpak/app/org.mozilla.Thunderbird/current/active/files/bin/thunderbird"])
+    return candidates
+
+
+def installation_status():
+    """Return evidence, not paths or a claim that portable installs cannot exist."""
+    uncertain = False
+    try:
+        candidates = _installation_candidates()
+    except (OSError, ValueError):
+        candidates, uncertain = [], True
+    for path in candidates:
+        try:
+            if path.is_file():
+                return {"state": "detected", "note": "A registered or discoverable Thunderbird executable exists; it was not started."}
+        except OSError:
+            uncertain = True
+    return {"state": "unconfirmed" if uncertain else "not_detected",
+            "note": "Thunderbird installation could not be confirmed. Portable or custom installations may not be detected; existing local profiles can still be used."}
+
+
+def diagnostics():
+    """Inspect local setup metadata without reading mail, identities or paths into output."""
+    installation = installation_status()
+    discovery = {}
+    discovered = profiles(diagnostic_state=discovery)
+    account_count = index_count = unreadable = 0
+    for profile in discovered:
+        try:
+            configured = read_accounts(profile)
+            account_count += len(configured)
+            if configured and (profile["path"] / "global-messages-db.sqlite").is_file():
+                index_count += 1
+        except (OSError, ValueError, TypeError):
+            unreadable += 1
+    saved = selection_path().is_file()
+    if not discovered:
+        if discovery.get("registries_unreadable", 0) or discovery.get("profiles_unavailable", 0):
+            code, action = "thunderbird_profile_unconfirmed", "check_thunderbird_profile_access"
+            guidance = "Thunderbird profile registration exists but could not be read or resolved. Check the profile registry, configuration and permissions, then run diagnostics again; reinstalling is not established as necessary."
+        elif installation["state"] == "not_detected":
+            code, action = "thunderbird_not_detected", "install_thunderbird"
+            guidance = "Thunderbird installation and a usable registered profile were not detected. Install Thunderbird from https://www.thunderbird.net/, open it and register an IMAP/POP3 account. For an existing portable/custom profile, set THUNDERBIRD_HOME to its registry location."
+        else:
+            code, action = "thunderbird_profile_unconfirmed", "open_thunderbird_and_register_account"
+            guidance = "A usable registered Thunderbird profile could not be confirmed. Open Thunderbird and complete profile/account setup, or check the existing profile registry location and permissions."
+    elif account_count == 0:
+        code = "account_registration_unconfirmed"
+        if unreadable:
+            action = "check_thunderbird_profile_access"
+            guidance = "Thunderbird account registration could not be confirmed because profile configuration could not be read. Check profile permissions and configuration, then run diagnostics again."
+        else:
+            action = "register_thunderbird_account"
+            guidance = "No supported IMAP/POP3 account registration could be confirmed. Open Thunderbird, add or complete the intended mail account and sign in, then run diagnostics again. Unsupported account types may also cause this result."
+    elif not index_count:
+        code, action = "thunderbird_index_missing", "enable_indexing_and_sync"
+        guidance = "Registered Thunderbird accounts were found, but no local global search index was detected for them. Enable Global Search and Indexer in Thunderbird, sync needed mail and allow indexing to finish."
+    elif not saved:
+        code, action = "selection_required", "discover_and_select_account"
+        guidance = "Local account configuration and an index exist. Use thunderbird_profiles and thunderbird_accounts, then ask for an explicit profile/account choice before selecting it."
+    else:
+        code, action = "selection_saved", "check_thunderbird_status"
+        guidance = "Local account configuration, an index and a saved bridge selection exist. Run thunderbird_status to validate that selected account; saved settings do not prove current account availability or authentication."
+    return {"installation": installation, "profile_count": len(discovered),
+            "account_count": account_count, "profiles_with_index": index_count,
+            "profiles_unreadable": unreadable + discovery.get("registries_unreadable", 0) + discovery.get("profiles_unavailable", 0),
+            "selection_saved": saved,
+            "code": code, "next_action": action, "guidance": guidance,
+            "authentication_verified": False, "mail_read": False, "client_started": False,
+            "note": "Counts describe local IMAP/POP3 configuration only. No passwords, account identities, profile paths, mail or server login checks are returned. Existing cached data does not require a detected executable."}
 
 
 def profile_by_id(profile_id):
     for profile in profiles():
         if profile["id"] == profile_id:
             return profile
-    raise BridgeError("Thunderbird profile was not found. Run thunderbird_profiles again.")
+    raise BridgeError("The selected Thunderbird profile could not be confirmed. Run thunderbird_diagnostics, then discover profiles again.",
+                      code="thunderbird_profile_unconfirmed", next_action="run_thunderbird_diagnostics")
 
 
 def read_accounts(profile):
@@ -152,7 +269,8 @@ def account_by_id(profile, account_id):
     for account in read_accounts(profile):
         if account["id"] == account_id:
             return account
-    raise BridgeError("Selected account is unavailable or unsupported. IMAP and POP3 identities are supported.")
+    raise BridgeError("The selected Thunderbird account registration could not be confirmed. Check that its IMAP/POP3 account is configured, then explicitly select it again.",
+                      code="account_registration_unconfirmed", next_action="run_thunderbird_diagnostics")
 
 
 def selection():
@@ -229,7 +347,8 @@ def database():
     profile, account = selection()
     path = profile["path"] / "global-messages-db.sqlite"
     if not path.is_file():
-        raise BridgeError("Thunderbird's local index is missing. Enable Global Search and Indexer, then wait for indexing.")
+        raise BridgeError("Thunderbird's local index is missing. Enable Global Search and Indexer, sync needed mail and wait for indexing.",
+                          code="thunderbird_index_missing", next_action="enable_indexing_and_sync")
     db = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3)
     try:
         db.row_factory = sqlite3.Row

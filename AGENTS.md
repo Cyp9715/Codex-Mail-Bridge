@@ -1,6 +1,6 @@
 # Repository instructions
 
-This is public source for a local mail bridge. Production mailbox data must never
+This is public source for a local Thunderbird mail bridge. Production mailbox data must never
 be published. Use synthetic `.test` identities and generated documents/images for
 examples, fixtures, screenshots, tests, logs, issues, PR descriptions and commit
 messages. Never copy real subjects, bodies, attachment names/contents, account or
@@ -21,8 +21,8 @@ describe general technical behavior only. Check the saved remote tree against th
 inspected tree and preserve an expected-parent/ref lease when publishing updates.
 
 Run the tests affected by changes, plus release validation when packaging changes.
-Respect explicit per-client account selection and mailbox read-only behavior.
-No fixed mail/profile paths, unsolicited client/account switching, remote image
+Respect explicit Thunderbird profile/account selection and mailbox read-only behavior.
+No fixed mail/profile paths, unsolicited profile/account switching, remote image
 fetches, mail security-policy changes, or attachment execution. Clearly distinguish
 planned attachment capabilities from implemented and tested runtime tools.
 

@@ -67,13 +67,18 @@ class ContractTests(unittest.TestCase):
     def test_description_is_lazy_and_catalog_does_not_read_mail(self):
         with patch.dict(bridge.FUNCTIONS, {name: lambda **kwargs: self.fail('Description read mail') for name in bridge.FUNCTIONS}):
             with patch('sys.stdout', new_callable=StringIO) as output:
-                self.assertEqual(bridge.main(['--describe', 'outlook_search']), 0)
+                self.assertEqual(bridge.main(['--describe', 'thunderbird_search']), 0)
             schema = json.loads(output.getvalue())['result']['inputSchema']
             self.assertIn('after', schema['properties'])
-            self.assertIn('body_search_limit', schema['properties'])
+            self.assertIn('field', schema['properties'])
         process, value = self.run_cli('--list')
         self.assertEqual(process.returncode, 0)
-        self.assertEqual(len(value['result']['operations']), 21)
+        self.assertEqual(value['result']['operations'], [
+            'thunderbird_diagnostics',
+            'thunderbird_profiles', 'thunderbird_accounts', 'thunderbird_select_account',
+            'thunderbird_status', 'thunderbird_search', 'thunderbird_read', 'thunderbird_thread',
+            'thunderbird_search_attachments', 'thunderbird_list_attachments', 'thunderbird_get_attachment',
+        ])
 
     def test_stdin_file_input_and_unknown_operations_fail_without_execution(self):
         for text in ('[]', '{"limit":true}', '{"jsonrpc":"2.0","method":"initialize"}'):

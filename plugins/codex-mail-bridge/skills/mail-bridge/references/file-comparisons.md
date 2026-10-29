@@ -1,10 +1,10 @@
 # Compare selected original files
 
-1. Search mail/attachment metadata by topic, parties, dates and filename. Union
+1. Search the selected Thunderbird account's mail/attachment metadata by topic, parties, dates and filename. Union
    spelling variants and follow pages before retrieving files. For a known mail
    ID, list its attachments directly. A missing filename match does not establish
    absence: indexed metadata can be incomplete or the file can be in a container.
-2. Build a provenance table: client/account, message ID, sender, sent/received mail
+2. Build a provenance table: Thunderbird account, message ID, sender, indexed mail
    timestamp, original filename, attachment ID, original byte count and SHA-256.
    The same name may have different bytes; different names may be duplicates.
    Document-internal dates, filenames and delivery dates are distinct evidence.

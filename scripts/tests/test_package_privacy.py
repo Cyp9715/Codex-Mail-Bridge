@@ -2,6 +2,7 @@
 from pathlib import Path
 import copy
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,21 @@ class PackagePrivacyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             builder.package(output, [(good, good.name), (bad, bad.name)])
         self.assertFalse(output.exists())
+
+    def test_distribution_rejects_retired_runtime_modules(self):
+        runtime = self.root / "server"
+        shutil.copytree(builder.PLUGIN / "server", runtime, ignore=shutil.ignore_patterns("__pycache__"))
+        (runtime / "retired_adapter.py").write_text("# obsolete adapter", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "runtime files"):
+            builder.validate_runtime_files(runtime)
+
+    def test_distribution_requires_the_complete_thunderbird_runtime(self):
+        runtime = self.root / "server"
+        shutil.copytree(builder.PLUGIN / "server", runtime, ignore=shutil.ignore_patterns("__pycache__"))
+        builder.validate_runtime_files(runtime)
+        (runtime / "accounts.py").unlink()
+        with self.assertRaisesRegex(ValueError, "runtime files"):
+            builder.validate_runtime_files(runtime)
 
     def test_private_denylist_applies_to_release_inputs(self):
         private = self.root / "private/publication-denylist.json"

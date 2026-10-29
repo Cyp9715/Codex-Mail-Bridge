@@ -1,55 +1,46 @@
-# Mail Bridge 0.10.0 release validation
+# Thunderbird Mail Bridge 0.11.0 release validation
 
-Validated October 19, 2026. No production mail, identities, message/store IDs,
-filenames, contents or local paths are published. Private comparisons stay in
-ignored work files. Both manifests and the local runtime report 0.10.0.
-
-## Change and compatibility
-
-Outlook mail access already used Windows PowerShell/COM. Its skill and errors
-did not provide an explicit CLI startup/recovery path or forbid screen automation
-fallback. This release adds installation/process diagnostics and an idempotent
-start command, exposes `starts_client` in command descriptions, and makes CLI-only
-mail handling and user-managed login/profile/security prompts explicit.
-
-The existing 19 mail/setup operations remain; two runtime operations make 21.
-Search/read/status never start Outlook implicitly. Thunderbird adapters, explicit
-account choices, private settings paths and read-only mailbox behavior are retained.
+Validation date: October 29, 2026. Both manifests and the runtime use 0.11.0.
+Only synthetic `.test` accounts and generated originals are used for this change.
+No production mailbox is accessed, selected, exported or published during testing.
 
 ## Checks
 
 | Check | Result |
 | --- | --- |
-| Plugin suite | 107 passed; no skips |
-| Release/publication suite | 26 passed |
-| Source-only installer suite | 8 passed |
-| Windows PowerShell 5.1 | Source parsing, synthetic scope and lifecycle cases passed under existing policy |
-| Synthetic lifecycle | Mail-free diagnostics, explicit startup, idempotence, missing installation/profile and ambiguous-instance rejection passed |
-| Live Outlook classic / Office 2019 | CLI detected a stopped configured client, started it, then confirmed the running process |
-| Live selected Outlook account | Status, compact metadata search, body read and conversation query passed through the launcher |
-| Outlook read state | Sampled mail retained its before/after unread flag |
-| Live selected Thunderbird account | Status, compact metadata search, body read and conversation query passed through the launcher |
-| Host-only generated originals | Three PDF/DOCX originals retained bytes/hashes across CLI exit, were analyzed by host libraries and explicitly released |
-| Distribution | Plugin/source archives passed integrity, source-byte and documentation-link checks |
-| Isolated installation | Installation, reinstallation, upgrade from 0.9.3 and synthetic original-file handoff passed |
+| Thunderbird runtime and setup diagnostics | 95 passed; no skips |
+| Publication/package suite | 28 passed |
+| Source installer suite | 11 passed |
+| Generated host handoff | Three PDF/DOCX originals retained exact bytes/hashes across CLI exit; separate host reading, same-name revision comparison, strikethrough inspection and explicit release passed |
+| Release archives | Plugin/source ZIP integrity, source-byte equality, relative documentation links and mirrored documentation passed |
+| Isolated installation | Install/reinstall and upgrade from baseline 0.10.0 passed using temporary configuration; installed files and synthetic original export verified |
+| Source scope | 82 distributable source files checked; no alternate-client implementation or references remain |
+| Skill scenario | Starts with Thunderbird diagnostics, follows setup guidance, then checks status/profile/account discovery; eleven operations, explicit account authorization and no remote fallback |
 
-No Computer Use, screenshot, accessibility, browser, mouse or keyboard automation
-was used for these mail checks. No account was switched or selected afresh. No
-mail send/save/delete/move/mark-read, forced sync or policy change was requested.
-Account-specific evidence is excluded from all source and archives.
+The suites total 134 passing tests. Host analysis uses separate QA dependencies;
+the runtime remains standard-library only. The isolated installation does not
+modify the user's installed plugin or account selection.
 
-The installed 0.9.3 archive is managed separately from this repository's release.
-Update the existing entry with the 0.10.0 plugin ZIP; a currently active chat may
-retain its earlier skill instructions. Account-service update/automatic routing
-in a new chat and other providers/PCs are separate, unverified host checks.
-Live original attachments were not re-exported for this runtime change; generated
-original-file regression and earlier release evidence cover retained transfer code.
-Successful sampled queries do not certify complete server sync or mailbox coverage.
+The runtime contract requires exactly eleven Thunderbird operations with no mailbox
+writes or client startup. Regression checks cover explicit account scope, read-only
+SQLite, retained Thunderbird selection/identity keys, Unicode body continuation,
+mbox/maildir original identity and private export lifecycle. Distribution checks
+reject stale modules and mismatched installed runtime bytes.
 
-## Distribution
+## Limits
 
-Use `codex-mail-bridge-0.10.0-plugin.zip` for a desktop plugin update, and the
-source ZIP for development. Both archives contain the release notes. `SHA256SUMS`
-records the published archive hashes. See [installation](../INSTALL.md),
-[release notes](RELEASE_NOTES.md), and [Outlook compatibility](OUTLOOK_COMPATIBILITY.md).
-Prior validation reports remain in the corresponding immutable version tags.
+Synthetic checks do not establish a new live Thunderbird-version/OS/provider
+certification, complete server synchronization, automatic skill routing in a newly
+installed desktop chat or a hosted plugin update. No such live check is claimed
+for this release. Document parsing in the QA script is a host action, outside
+the plugin runtime.
+
+Use a clean source/plugin extraction when upgrading. Keep private Thunderbird
+selections outside the package. The immutable `v0.11.0` tag identifies the final
+main-branch release commit; existing version tags are preserved.
+See [release notes](RELEASE_NOTES.md) and [installation](../INSTALL.md).
+
+Setup regression cases cover executable discovery, no installation/profile,
+unregistered accounts, unreadable preferences/registries/profile paths, missing
+indexes and reusable caches without a detected executable. Diagnostics never
+claim to verify live authentication or silently choose an account.
