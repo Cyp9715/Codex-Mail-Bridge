@@ -22,6 +22,11 @@ function fixture(t) {
     'plugin.json': JSON.stringify(manifest),
     '.codex-plugin/plugin.json': JSON.stringify({ name: manifest.name, version: manifest.version, requires_local_executor: true }),
     'server/bridge.py': 'VERSION = "0.9.2"',
+    'server/accounts.py': '# synthetic account discovery',
+    'server/attachments.py': '# synthetic private exports',
+    'server/mail_dates.py': '# synthetic dates',
+    'server/mail_output.py': '# synthetic bounded output',
+    'server/thunderbird_attachments.py': '# synthetic MIME cache',
     'scripts/mail_bridge.cjs': '// synthetic launcher',
     'skills/mail-bridge/SKILL.md': '---\nname: mail-bridge\ndescription: Synthetic test skill.\n---\n'
   };
@@ -83,6 +88,25 @@ test('a stale installed version cannot be reported as success', t => {
 test('changed installed skill fails content verification', t => {
   const f = fixture(t);
   fs.writeFileSync(path.join(f.cache, 'skills/mail-bridge/SKILL.md'), 'stale skill');
+  assert.throws(() => installer.install(f.root, f.run), /Installed content differs/);
+});
+
+test('a retired runtime module cannot remain in an upgraded source', t => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.plugin, 'server/retired_adapter.py'), '# obsolete adapter');
+  assert.throws(() => installer.install(f.root, f.run), /Unexpected runtime files/);
+  assert.equal(f.calls.length, 0);
+});
+
+test('a retired installed runtime module cannot be reported as a successful update', t => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.cache, 'server/retired_adapter.py'), '# obsolete adapter');
+  assert.throws(() => installer.install(f.root, f.run), /Unexpected runtime files/);
+});
+
+test('every installed runtime module must match the requested release', t => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.cache, 'server/accounts.py'), '# stale account routing');
   assert.throws(() => installer.install(f.root, f.run), /Installed content differs/);
 });
 

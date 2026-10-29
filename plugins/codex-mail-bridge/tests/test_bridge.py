@@ -217,6 +217,21 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(omitted["body_omitted_by_budget"])
         self.assertEqual(omitted["next_body_offset"], 0)
 
+    def test_thread_budget_and_body_continuation_count_unicode_characters(self):
+        self.select()
+        body = "한😀글🚀" * 80
+        with closing(sqlite3.connect(self.profile["path"] / "global-messages-db.sqlite")) as db:
+            db.execute("UPDATE messagesText_content SET c0body=? WHERE docid IN (101,102)", (body,))
+            db.commit()
+        result = bridge.thread(10, max_characters_per_message=200, max_total_characters=300)
+        self.assertEqual(result["body_characters_returned"], 300)
+        for item, prefix in zip(result["messages"], (body[:200], body[:100])):
+            self.assertEqual(item["body"], prefix)
+            self.assertEqual(item["body_offset_unit"], "unicode_characters")
+            remainder = bridge.read(item["id"], body_offset=item["next_body_offset"],
+                                    expected_body_sha256=item["body_sha256"])["message"]["body"]
+            self.assertEqual(prefix + remainder, body)
+
     def test_port_and_username_boundaries(self):
         account = accounts.account_by_id(self.profile, "account1")
         for uri in ("imap://demo@imap.example.test.evil.test/INBOX", "imap://other@imap.example.test/INBOX",
@@ -309,12 +324,12 @@ class BridgeTests(unittest.TestCase):
 
     def test_no_mail_write_operations_and_disclosed_local_side_effects(self):
         names = {operation["name"] for operation in bridge.OPERATIONS}
-        self.assertEqual(len(names), 21)
+        self.assertEqual(len(names), 10)
         for operation in bridge.OPERATIONS:
             self.assertIs(operation["mailbox_write"], False)
             expected = "selection" if operation["name"].endswith("_select_account") else "export" if operation["name"].endswith("_get_attachment") else "none"
             self.assertEqual(operation["local_write"], expected)
-            self.assertEqual(operation["starts_client"], operation["name"] == "outlook_start")
+            self.assertIs(operation["starts_client"], False)
         for name in ("thunderbird_send", "thunderbird_delete", "thunderbird_attachment"):
             self.assertFalse(bridge.call_operation(name, {})["ok"])
 

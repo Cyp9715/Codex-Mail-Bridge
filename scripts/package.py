@@ -10,7 +10,15 @@ from publication_guard import content_findings, load_denylist, path_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "plugins/codex-mail-bridge"
-TEXT_SUFFIXES = {".py", ".cjs", ".cmd", ".ps1", ".json", ".md"}
+TEXT_SUFFIXES = {".py", ".cjs", ".cmd", ".json", ".md"}
+RUNTIME_FILES = {"accounts.py", "attachments.py", "bridge.py", "mail_dates.py",
+                 "mail_output.py", "thunderbird_attachments.py"}
+
+
+def validate_runtime_files(directory):
+    files = [path for path in directory.iterdir() if path.name != "__pycache__"]
+    if {path.name for path in files} != RUNTIME_FILES or any(not path.is_file() or path.is_symlink() for path in files):
+        raise ValueError("Unexpected or missing Thunderbird runtime files; use a clean source extraction")
 
 
 def validate_file(path, data=None):
@@ -126,6 +134,7 @@ def main():
     overlay = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
     version = validate_manifests(manifest, overlay)
     validate_runtime_version((PLUGIN / "server/bridge.py").read_text(encoding="utf-8"), version)
+    validate_runtime_files(PLUGIN / "server")
     validate_marketplace(json.loads((ROOT / ".agents/plugins/marketplace.json").read_text(encoding="utf-8")))
     # Include only known component directories and explicit top-level files.
     for name in ("mcp.json", ".mcp.json", ".app.json", "hooks/hooks.json"):

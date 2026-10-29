@@ -92,14 +92,21 @@ class AnalysisTests(unittest.TestCase):
 
     def test_missing_invalid_or_truncated_headers_do_not_merge_distinct_messages(self):
         for header in ("", "not a valid header", "<bad\n@example.test>", "<<same@example.test>>"):
-            a = message_identity({"id": "one", "message_id_header": header}, "outlook", "scope")
-            b = message_identity({"id": "two", "message_id_header": header}, "outlook", "scope")
+            a = message_identity({"id": 101, "message_id_header": header}, account_scope="scope")
+            b = message_identity({"id": 102, "message_id_header": header}, account_scope="scope")
             self.assertEqual(a["dedup_basis"], "local_message_id")
             self.assertNotEqual(a["dedup_key"], b["dedup_key"])
-        a = message_identity({"id": "one", "message_id_header": "same@example.test", "message_id_header_truncated": True}, "outlook", "scope")
+        a = message_identity({"id": 101, "message_id_header": "same@example.test", "message_id_header_truncated": True}, account_scope="scope")
         self.assertEqual(a["dedup_basis"], "local_message_id")
-        self.assertNotEqual(message_identity({"id": "one"}, "outlook", "scope")["dedup_key"],
-                            message_identity({"id": "one"}, "outlook", "other")["dedup_key"])
+        self.assertNotEqual(message_identity({"id": 101}, account_scope="scope")["dedup_key"],
+                            message_identity({"id": 101}, account_scope="other")["dedup_key"])
+
+
+class IdentityContractTests(unittest.TestCase):
+    def test_thunderbird_identity_stays_stable_without_a_client_selector(self):
+        item = message_identity({"id": 101, "message_id_header": "demo-101@example.test"}, account_scope="scope")
+        self.assertEqual(item["dedup_key"], "m_2d5ceee1d47480979c7695fad435814b92d00ee0b6ad1f4732c1a71192a9e431")
+        self.assertEqual(item["dedup_basis"], "internet_message_id")
 
 
 if __name__ == "__main__":

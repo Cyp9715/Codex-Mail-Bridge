@@ -51,6 +51,13 @@ def main():
             return json.loads(result.stdout) if expect_json else result.stdout
 
         def extract():
+            # An update replaces the packaged plugin tree; overlay extraction
+            # would retain removed runtime modules from the previous version.
+            destination = source / "plugins/codex-mail-bridge"
+            if destination.exists():
+                if destination.is_symlink() or not destination.resolve().is_relative_to(source.resolve()):
+                    raise ValueError("Unsafe synthetic upgrade destination")
+                shutil.rmtree(destination)
             with zipfile.ZipFile(args.archives / f"codex-mail-bridge-{version}-source.zip") as archive:
                 archive.extractall(source)
 
@@ -97,7 +104,11 @@ def main():
             return response["result"]
 
         assert cli("--version")["version"] == version
-        assert len(cli("--list")["operations"]) == 21
+        assert cli("--list")["operations"] == [
+            "thunderbird_profiles", "thunderbird_accounts", "thunderbird_select_account",
+            "thunderbird_status", "thunderbird_search", "thunderbird_read", "thunderbird_thread",
+            "thunderbird_search_attachments", "thunderbird_list_attachments", "thunderbird_get_attachment",
+        ]
         profile = cli("--call", "thunderbird_profiles")["profiles"][0]["id"]
         cli("--call", "thunderbird_select_account", data={"profile_id": profile, "account_id": "account1", "confirm": True})
         found = cli("--call", "thunderbird_search_attachments", data={"filename": "agenda.pdf", "after": "2026-10-01"})

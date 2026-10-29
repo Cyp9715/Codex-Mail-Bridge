@@ -1,17 +1,24 @@
 # Support
 
-Mail Bridge · Cyp
+Thunderbird Mail Bridge · Cyp
 
-Use [GitHub Issues](https://github.com/Cyp9715/Codex-Mail-Bridge/issues) for setup problems, bugs, and feature requests.
-Include plugin/client versions, operating system, and a redacted description.
-Check Node/Python availability; for Thunderbird, indexing and registered profiles;
-for Outlook, a running classic Windows profile, unique delivery store, PowerShell
-policy, and security prompts. New Outlook and Mac Outlook are unsupported.
+Use [GitHub Issues](https://github.com/Cyp9715/Codex-Mail-Bridge/issues) for setup
+problems, bugs and feature requests. Include plugin/Thunderbird/Python versions,
+operating system and a synthetic reproduction. Check local command/file access,
+registered profiles, the explicit account choice, global indexing and available
+local cache. A missing cache or unsupported layout cannot be repaired by a remote
+fetch or automatic account switch. See [compatibility](THUNDERBIRD_COMPATIBILITY.md).
 
-Issues are public. Do not post real mail, addresses, server names, profile paths,
-PST/OST, databases, settings, passwords, or identifiers from production messages.
-Use the synthetic `.test` fixtures for reproduction. A non-sensitive issue can
-request a private contact method for security details. There is no dedicated
-private disclosure channel or guaranteed response time.
+For `index_unavailable`, inspect Thunderbird indexing/permissions. For
+`query_incomplete`, narrow filters or retry when the index is ready. For
+`cache_search_incomplete`, follow the returned cache scan continuation. For
+`body_changed`, restart the body read. For `export_limit`, release finished files;
+for `export_busy`, wait for the other local export/cleanup command to end.
+
+Issues are public. Never post real messages, addresses, server names, profile paths,
+databases, settings, passwords or production identifiers. Use `.test` identities
+and generated originals. A non-sensitive issue may request a private contact
+method for security details; no dedicated private disclosure channel or response
+time is guaranteed.
 
 [Privacy](privacy.md) · [Terms](terms.md)

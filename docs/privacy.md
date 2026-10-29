@@ -1,77 +1,59 @@
 # Privacy notice
 
-Mail Bridge · Cyp · effective October 19, 2026
+Thunderbird Mail Bridge · Cyp · effective October 29, 2026
 
 ## Local access
 
-Thunderbird discovery reads registered profiles and limited account/server
-preferences; mail queries read its local global search index. Outlook discovery
-uses the running classic Windows Outlook profile's account and delivery-store
-API. It never guesses or parses PST/OST files. One account per client must be
-explicitly selected. Shared Outlook delivery stores are rejected.
+Discovery reads registered Thunderbird profiles and limited account/server
+preferences. It can share profile names, account addresses and server metadata
+with the invoking AI host. Mail queries read the local global search index for
+one explicitly chosen IMAP/POP3 account. No password stores are read.
 
-Discovery can return profile/account names, addresses, and client metadata to
-the AI host. Selected-account queries can return subjects, senders, recipients,
-dates, folder names/IDs, message/conversation IDs, body text, and attachment names.
-Attachment searches use metadata only. An explicitly requested attachment get
-reads one original file and makes it available to the host as a private temporary
-local file; images stay as original files for explicit host viewing. The CLI returns no base64 or image pixels. No document parsing
-or OCR is performed. The bridge does not read password stores or create, send,
-save, delete, move, or mark mail as read.
+Selected-account results can contain subjects, senders, recipients, dates, folders,
+opaque message/conversation IDs, body sections and indexed filenames. Attachment
+search is metadata only. Listing reads one scoped message's local MIME structure;
+get decodes only the requested attachment and makes its original bytes available
+as a private local file. Host file/image tools open selected originals separately.
+The bridge performs no document parsing, OCR, attachment execution or image fetch.
 
-`outlook_diagnostics` reads only installation/profile-presence and process state;
-it returns no paths, profile names or account identities and does not activate COM.
-`outlook_start` can explicitly launch the installed classic client with an existing
-profile. It does not select a profile or account, log in, force sync or automate
-windows. The client may perform its usual startup/synchronization. Other operations
-do not start it. Login/profile/security prompts remain the user's responsibility.
+The bridge does not send, save drafts, delete, move or mark messages read. It never
+launches Thunderbird, signs in, forces sync or changes application security policy.
+It makes no network mail requests. Its results cover existing local index/cache
+data, which can be stale or incomplete.
 
-## Local storage and network
+## Private storage
 
-Private per-client settings hold opaque account/profile IDs and identity
-fingerprints outside the plugin. They contain no passwords, addresses, mail,
-or absolute profile paths. Read-only calls may read previous-version selections
-but never migrate or modify settings. A new explicit selection writes only the
-bridge's own settings. Delete current and legacy files to forget selections.
+`thunderbird.json` outside the plugin stores opaque profile/account IDs and an
+identity fingerprint. It contains no password, email address, mail or profile path.
+Read-only operations may reuse older Thunderbird selection files without migrating
+them. A new explicit account choice writes only the bridge's current settings.
 
-Attachment get creates a generated private local export directory and basename
-containing exact original bytes, default 10 MiB and up to 100 MiB when explicitly
-allowed through max_bytes. The host receives path, name, size,
-hash, content type and export ID. Exports survive command exit so the host can read
-them. The default export root is `exports/` under the private settings directory;
-`MAIL_BRIDGE_EXPORT_ROOT` can override it locally. Up to 16 files are retained.
-Later exports or explicit `--cleanup` remove files older than 10 minutes; a full store
-preserves unexpired files and asks the caller to release finished exports.
-An OS file lock serializes concurrent export/cleanup operations. `--release <export_id>` removes one finished export.
-Cleanup removes only recognized generated files and empty directories, without
-recursive deletion or following root/child links. Locked files or no later cleanup
-can leave copies. There is no background deletion process. Switching accounts
-cannot recall exported files, host copies or chat history.
+Get creates an exact original copy at a generated private path. The default file
+limit is 10 MiB, with up to 100 MiB by explicit request. The receipt includes name,
+size, SHA-256, type, provenance and export ID. Up to 16 exports remain under
+`exports/` in the settings directory or a local `MAIL_BRIDGE_EXPORT_ROOT` override.
+Later exports or `--cleanup` remove copies older than ten minutes; unexpired files
+are preserved when storage is full. An OS lock serializes export and cleanup.
+
+`--release EXPORT_ID` removes one finished generated original and its empty
+directory. Cleanup never recursively deletes arbitrary paths or follows links.
+No background cleaner runs; locked files or no later cleanup can leave copies.
+Switching accounts cannot recall existing exports, host copies or chat history.
 See [attachment details](ATTACHMENT_SUPPORT.md).
 
-There is no Cyp backend, analytics, telemetry, advertising, payment, or
-mail archive. The one-shot local launcher downloads nothing and starts no MCP
-server or network listener. The Python/PowerShell bridge
-does not directly call a network mail service, but Outlook's configured provider
-may fetch data or synchronize as part of its normal client operation. No forced
-sync or security-policy change is implemented. Offline operation is not guaranteed.
+## AI host and support
 
-## AI host and GitHub
+There is no Cyp backend, telemetry, analytics, advertising, payment or mail archive.
+The local launcher downloads nothing and starts no server or network listener.
+Local execution does not make GPT offline: retrieved mail/metadata and host-opened
+files can reach OpenAI under the invoking host's settings and retention policies.
+The bridge cannot delete those host/chat copies. Check organizational authorization
+before processing confidential data.
 
-Local execution does not make the AI service offline. Retrieved metadata and
-mail, requested originals and images are made available to the invoking AI host
-under its own settings, storage, and
-retention policies. The bridge cannot delete host chat history. Check host
-policies and organizational authorization before processing confidential mail.
+GitHub hosts the project and voluntary public support issues under its own policies.
+Do not include private mail, settings, paths, credentials or account identities in
+issues. There is no separate support collection/retention backend.
 
-GitHub hosts this project under its own policies. Voluntary support issues are
-public. Do not include private mail or settings. There is no separate support
-collection/retention backend.
-
-## Stop access
-
-Disable/uninstall the plugin and delete its current/legacy selection files to
-forget account choices. This does not erase Thunderbird/Outlook data or AI-host
-history. Use each application's own controls for those records.
-See the [README](../README.md) for settings locations and [support](support.md)
-for privacy questions, keeping private information out of public issues.
+Disable/uninstall the plugin to stop access. Delete current/legacy selection files
+to forget choices; this does not erase Thunderbird mail or AI-host history.
+See the [README](../README.md) for settings locations and [support](support.md).

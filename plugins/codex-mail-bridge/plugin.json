@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-mail-bridge",
-  "version": "0.10.0",
-  "description": "Find and reference locally signed-in Thunderbird or classic Outlook mail, including Office 2019. Retrieve relevant messages and original files for GPT through a local skill and CLI.",
+  "version": "0.11.0",
+  "description": "Find and reference mail, conversations and selected original attachments from a locally configured Thunderbird account. Read its local index and MIME caches through a desktop skill and CLI.",
   "author": {
     "name": "Cyp"
   },
@@ -10,8 +10,6 @@
   "keywords": [
     "mail",
     "thunderbird",
-    "outlook",
-    "office-2019",
     "codex",
     "read-only",
     "local",
@@ -22,9 +20,9 @@
     "com.openai": {
       "requires_local_executor": true,
       "interface": {
-        "displayName": "Mail Bridge",
-        "shortDescription": "Read Thunderbird & Outlook",
-        "longDescription": "Developed by Cyp. Mail Bridge lets GPT find and reference email from Thunderbird or classic Outlook already signed in on this computer, including Office 2019. Sign in and sync needed mail before use; keep classic Outlook running in that profile.\n\nThis local desktop plugin uses a skill and one-shot CLI commands. Python 3.10+ and host command/file access are required; the optional launcher uses Node.js. Outlook uses Windows PowerShell 5.1 and COM under its existing policy, without Computer Use. CLI diagnostics inspect installation/process state without accessing mail; an explicit start command can launch an existing configured classic profile. Login/profile/security prompts require the user. No remote service, MCP server, login credentials or API key is required by the bridge.\n\nChoose one account explicitly. Search by date/time, subject, body, sender, recipient or folder. Duplicate-candidate keys, configured folder roles and original-file provenance support conversation research, date summaries and version comparisons. Small metadata pages are the default; GPT can continue broader searches, read body sections and conversations, and retrieve selected original attachments or inline images. GPT and the host's file tools interpret documents; the bridge does no PDF/Office parsing, OCR or attachment execution.\n\nOriginals default to 10 MiB each; callers can allow up to 100 MiB when needed. Up to 16 files remain in private local export storage. Unexpired files are preserved when full. Release finished files explicitly; later exports or cleanup remove copies older than 10 minutes. No background cleanup runs.\n\nMailbox access is read-only: no sending, saving drafts, deleting, moving, marking read, forced sync or policy changes. Local indexes/caches may be stale or incomplete. New/web/Mac Outlook, shared delivery stores and extra archive stores are unsupported. Archive CLI search, body reading and original-file export were validated with local Thunderbird and classic Outlook for Windows. Other providers/PCs and installed-host routing remain unverified.\n\nRetrieved account details, mail and files opened by the AI host can reach OpenAI for the requested task. Local execution does not make GPT offline. There is no Cyp backend, telemetry or mail archive. Independent Cyp project; not affiliated with Mozilla, Microsoft or OpenAI.",
+        "displayName": "Thunderbird Mail Bridge",
+        "shortDescription": "Read Thunderbird mail",
+        "longDescription": "Developed by Cyp. Thunderbird Mail Bridge lets GPT research mail from one explicitly selected Thunderbird account on this computer. Sign in and sync needed mail in Thunderbird and allow global indexing to finish before use. Its window can be closed when an existing index/cache is available.\n\nThis local desktop plugin provides ten one-shot CLI operations through a skill. Python 3.10+ and host command/file access are required; Node.js is an optional launcher. Registered Thunderbird profiles are discovered on Windows, macOS and Linux, including Snap and Flatpak registries. No remote service, MCP server, login credentials or API key is required by the bridge. The bridge never starts a mail client or signs in.\n\nSearch the selected account by date/time, subject, body, sender, recipient or folder. Small metadata pages are the default. GPT can continue search pages, read body sections and conversations, summarize date ranges, and compare relevant original attachments or inline images. Duplicate-candidate keys, configured folder roles, body hashes and original-file receipts preserve evidence. The bridge does no PDF/Office parsing, OCR or attachment execution; the host's authorized file tools interpret selected originals separately.\n\nAttachment search uses indexed filenames. List/get resolves one indexed message in its scoped local mbox or maildir cache and verifies its Message-ID. Missing, ambiguous or unsupported caches fail closed, without network fetching. Originals default to 10 MiB each; callers can allow up to 100 MiB when needed. At most 16 exports remain in private local storage. Release finished files explicitly; later exports or cleanup remove copies older than ten minutes. No background cleaner runs.\n\nMailbox access is read-only: no sending, saving drafts, deleting, moving, marking read, forced sync or policy changes. Local indexes/caches may be stale or incomplete. Only configured IMAP/POP3 accounts with a usable global search index are eligible. Synthetic regression and package checks do not establish complete server coverage or installed-host routing on every operating system.\n\nRetrieved account details, mail and files opened by the AI host can reach OpenAI for the requested task. Local execution does not make GPT offline. There is no Cyp backend, telemetry or mail archive. Independent Cyp project; not affiliated with Mozilla or OpenAI.",
         "developerName": "Cyp",
         "category": "Productivity",
         "capabilities": [

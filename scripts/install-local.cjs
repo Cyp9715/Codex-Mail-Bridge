@@ -6,6 +6,17 @@ const { spawnSync } = require('node:child_process');
 
 const PLUGIN = 'codex-mail-bridge';
 const MARKETPLACE = 'cyp-soft-local';
+const RUNTIME_FILES = ['accounts.py', 'attachments.py', 'bridge.py', 'mail_dates.py',
+                       'mail_output.py', 'thunderbird_attachments.py'];
+
+function verifyRuntimeFiles(pluginRoot) {
+  const entries = fs.readdirSync(path.join(pluginRoot, 'server'), { withFileTypes: true })
+    .filter(entry => !(entry.name === '__pycache__' && entry.isDirectory()));
+  if (entries.some(entry => !entry.isFile()) ||
+      JSON.stringify(entries.map(entry => entry.name).sort()) !== JSON.stringify(RUNTIME_FILES)) {
+    throw new Error('Unexpected runtime files. Replace the plugin directory with a clean extraction of this release before retrying.');
+  }
+}
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
@@ -30,6 +41,7 @@ function inspectDistribution(root) {
   for (const name of ['skills/mail-bridge/SKILL.md', 'scripts/mail_bridge.cjs', 'server/bridge.py']) {
     if (!fs.statSync(path.join(pluginRoot, name)).isFile()) throw new Error(`Missing plugin file: ${name}`);
   }
+  verifyRuntimeFiles(pluginRoot);
   return { pluginRoot, version: manifest.version };
 }
 
@@ -84,9 +96,10 @@ function install(root, run, checkOnly = false) {
       !installed.installedPath || !path.isAbsolute(installed.installedPath)) {
     throw new Error('Codex did not confirm the requested plugin version. The marketplace may be registered; inspect it before retrying.');
   }
-  // Verify the installed skill and runtime, rather than trusting a successful exit.
+  verifyRuntimeFiles(installed.installedPath);
+  // Verify all runtime modules as well as the installed skill and manifests.
   for (const name of ['plugin.json', '.codex-plugin/plugin.json', 'skills/mail-bridge/SKILL.md',
-                      'scripts/mail_bridge.cjs', 'server/bridge.py']) {
+                      'scripts/mail_bridge.cjs', ...RUNTIME_FILES.map(name => `server/${name}`)]) {
     if (!fs.readFileSync(path.join(expected.pluginRoot, name)).equals(fs.readFileSync(path.join(installed.installedPath, name)))) {
       throw new Error(`Installed content differs from this release: ${name}`);
     }

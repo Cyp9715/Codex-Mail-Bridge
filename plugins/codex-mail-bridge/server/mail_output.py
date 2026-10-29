@@ -3,7 +3,7 @@ import hashlib
 import re
 
 
-def message_identity(item, client, account_scope=""):
+def message_identity(item, account_scope=""):
     """Expose a duplicate candidate key, never silently discard mailbox copies."""
     header = str(item.get("message_id_header") or "").strip()
     if header.startswith("<") and header.endswith(">"):
@@ -12,7 +12,7 @@ def message_identity(item, client, account_scope=""):
               bool(re.fullmatch(r"[^\s<>\x00-\x1f]{1,2048}@[^\s<>\x00-\x1f]{1,2048}", header)))
     basis = "internet_message_id" if usable else "local_message_id"
     identity = header if usable else str(item["id"])
-    digest = hashlib.sha256((client + "\n" + account_scope + "\n" + basis + "\n" + identity).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(("thunderbird\n" + account_scope + "\n" + basis + "\n" + identity).encode("utf-8")).hexdigest()
     item.update(dedup_key="m_" + digest, dedup_basis=basis)
     return item
 
@@ -67,8 +67,7 @@ def budget_bodies(messages, maximum):
         if len(body) > remaining:
             item["body"] = body[:remaining]
             item["body_truncated"] = item["has_more_body"] = True
-            units = len(item["body"].encode("utf-16-le")) // 2 if item.get("body_offset_unit") == "utf16_code_units" else len(item["body"])
-            item["next_body_offset"] = item.get("body_offset", 0) + units
+            item["next_body_offset"] = item.get("body_offset", 0) + len(item["body"])
             item["body_omitted_by_budget"] = remaining == 0
             clipped = True
         remaining -= len(item.get("body", ""))

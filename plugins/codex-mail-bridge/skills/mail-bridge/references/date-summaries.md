@@ -11,14 +11,13 @@ and search each interval, or search the bounded month and filter converted dates
 Never apply weekday tests to UTC dates when the user means local days. Days still
 in the future are pending, not completed days with no mail.
 
-Search metadata without snippets first. Finish matching pages and Outlook
-candidate windows. For "received mail", exclude identified sent folders using
+Search Thunderbird metadata without snippets first and finish matching pages.
+For "received mail", exclude identified sent folders using
 status role / message folder_role, not English or translated display names.
 The role other does not prove a message was received or sent: report unresolved
 scope or inspect the relevant sender/folder evidence. Keep received self-copies
 when present in the inbox. Thunderbird date_basis is indexed_message_date;
-Outlook date_basis is received_time. Do not claim Thunderbird has an independent
-receipt timestamp or Outlook date filtering uses SentOn.
+do not claim it provides an independent receipt timestamp.
 
 Retain mailbox rows until duplicate candidates are checked. Identical
 internet_message_id dedup keys can connect inbox/label copies in one selected

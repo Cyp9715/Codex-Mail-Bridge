@@ -1,34 +1,28 @@
-# Portability and verification boundaries
+# Thunderbird portability
 
-Mail Bridge discovers user configuration; no developer mailbox path is shipped.
+| Boundary | Behavior |
+| --- | --- |
+| Runtime | Python 3.10+ standard library; optional existing Node.js launcher |
+| Discovery | Registered Windows/macOS/Linux profiles, plus Linux Snap/Flatpak registries |
+| Profile paths | `profiles.ini` relative/absolute paths; optional `THUNDERBIRD_HOME` |
+| Account scope | Explicit IMAP/POP3 profile/account choice and unchanged identity fingerprint |
+| Mail source | Read-only local global search index; no remote protocols |
+| Originals | Scoped mbox/maildir caches from server storage preferences |
+| Selection | Private opaque IDs/fingerprint outside the plugin; older Thunderbird selections readable |
+| Exports | Generated private storage and cross-process OS locks; explicit release/lazy expiry |
 
-| Area | Design | Evidence |
-| --- | --- | --- |
-| Thunderbird registry | Standard per-OS locations plus THUNDERBIRD_HOME | Windows live; Windows/macOS/Linux/Snap/Flatpak synthetic registry tests |
-| Thunderbird profile | profiles.ini relative or absolute paths | Synthetic nonstandard/absolute registration test |
-| Outlook storage | Account.DeliveryStore in the running classic profile | Office Standard 2019 x64 live; no PST/OST parsing |
-| Outlook account boundary | Identity fingerprint, unique delivery store, scoped folder/item checks | Synthetic COM scope tests and one real IMAP account |
-| Settings | User application-data folders; independent environment overrides | Temporary paths with spaces/non-ASCII characters; legacy selection tests |
-| Python/Node | Existing runtime discovery, explicit override, PATH fallback | Current Windows setup; no dependency downloads |
-| PowerShell | SystemRoot-derived Windows PowerShell 5.1, -File, no execution-policy override | Alternate SystemRoot mocked test; current Windows live |
+`MAIL_BRIDGE_THUNDERBIRD_SETTINGS` and legacy `THUNDERBIRD_BRIDGE_SETTINGS` override
+the selection path. `MAIL_BRIDGE_EXPORT_ROOT` overrides private export storage.
+`MAIL_BRIDGE_PYTHON` or `THUNDERBIRD_PYTHON` chooses an existing interpreter. No
+runtime downloads, hardcoded profile paths or password-store access occur.
 
-Actual Outlook read/search/conversation and unchanged unread state were checked
-on one Windows Office 2019 x64 installation. This is not evidence for every
-third-party PC, x86 Office, another Office edition, Exchange configuration,
-corporate security policy, macOS, or Linux. Automated mocks are labeled as such.
-Blocked COM access, a closed/changed profile, shared stores, unsupported clients,
-and invalid settings produce errors rather than guessing another mailbox/path.
+Windows uses `%LOCALAPPDATA%/CypSoft/MailBridge/`; macOS uses
+`~/Library/Application Support/CypSoft/MailBridge/`; Linux uses
+`$XDG_CONFIG_HOME/CypSoft/MailBridge/` or `~/.config/CypSoft/MailBridge/`.
+Settings contain no address, password, mail or absolute profile path.
 
-No real accounts, addresses, folder paths, store/message IDs, or mail bodies are
-included in the distributable. Public screenshots/recordings must use isolated
-synthetic data. Report compatibility issues with redacted diagnostics only.
-
-Version 0.10.0 retains metadata-first original-file access through a skill and local
-CLI, with no MCP transport. Generated-file/CLI and synthetic COM tests cover the
-adapters. Extracted ZIP CLI checks additionally passed with live Thunderbird
-and classic Outlook original-file exports; installed-host routing and other
-providers/PCs remain unverified. See [release validation](RELEASE_VALIDATION.md).
-See [attachment support](ATTACHMENT_SUPPORT.md) and [CLI contract](CLI.md).
-
-See [the current local review](LOCAL_REVIEW.md) for SMTP resolution, direct
-original-file export, cache continuation and verification limits.
+Registered-profile discovery support is not evidence of live compatibility on
+every operating system or Thunderbird version. Custom cache layouts can be
+unsupported; missing or ambiguous identity fails closed. Installed-host routing,
+another PC and complete server coverage require separate validation.
+See [compatibility](THUNDERBIRD_COMPATIBILITY.md) and [validation](RELEASE_VALIDATION.md).

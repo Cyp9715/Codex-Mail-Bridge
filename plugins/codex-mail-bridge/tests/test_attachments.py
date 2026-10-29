@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'server'))
 import accounts
 import attachments
 import bridge
-import outlook
 import thunderbird_attachments as tb
 from create_demo import create_demo
 from attachment_demo import mime, png, setup

@@ -16,7 +16,7 @@ import zlib
 EMAIL = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
 USER_PATH = re.compile(r"(?:[A-Za-z]:[\\/]+Users[\\/]+[^<%\s]|/(?:home|Users)/[^<%\s/]+)")
 MAIL_SUFFIXES = {".eml", ".msg", ".pst", ".ost", ".sqlite", ".db", ".msf", ".mbox"}
-PRIVATE_NAMES = {"prefs.js", "profiles.ini", "settings.json", "thunderbird.json", "outlook.json", ".env"}
+PRIVATE_NAMES = {"prefs.js", "profiles.ini", "settings.json", "thunderbird.json", ".env"}
 PRIVATE_DIRS = {"private", "work", "outputs", "node_modules", "__pycache__", ".venv"}
 MAX_BLOB = 2 * 1024 * 1024
 # The existing icon's provenance certificate has a public CA contact. Exempt

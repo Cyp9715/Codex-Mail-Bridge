@@ -1,28 +1,18 @@
-# Mail Bridge · Cyp
+# Thunderbird Mail Bridge
 
-Let GPT find and reference mail from Thunderbird or classic Outlook already
-signed in on this computer, including Office 2019.
-Sign in and sync needed mail in the desktop client first; keep classic Outlook running.
-The desktop skill invokes one-shot local CLI operations, without an MCP server
-or Cyp remote service. A local conversation with command/file permissions
-and Python 3.10+ is required. The bridge provides explicit date/time filters,
-metadata/result pages, body sections, conversation budgets and selected original
-files. GPT interprets natural-language requests and chooses those arguments.
+Research mail, summarize conversations/date ranges and compare relevant original
+attachments from one explicitly selected Thunderbird account. A local skill invokes
+ten one-shot CLI operations against existing index/cache data. Python 3.10+ and
+local command/file access are required. There is no server or remote mail fetch.
 
-Original files use generated private local export paths that survive command exit.
-Images are viewed separately through the host's authorized image tool. The CLI
-emits no base64, pixels or document text. No PDF/Office parsers or file execution.
-Actual host file access/analysis requires host permissions and format support.
-Mailboxes remain read-only; account selection and exports write only local settings/copies.
+Sign in and sync needed mail in Thunderbird and let global indexing finish.
+Existing local data can be read with its window closed. Retrieved data and
+host-opened originals can reach the invoking AI service; local does not mean offline.
 
-Broad work can continue candidate/result pages and partition dates/folders. Coverage,
-truncation, revision hashes and actionable errors support targeted follow-up.
-Registered client paths are used; no fixed mailbox path is assumed. Retrieved
-data and host-opened files can reach OpenAI; local execution does not mean offline
-AI processing. Free MIT source; no publisher backend, tracking or payments.
-
-[Source and installation](https://github.com/Cyp9715/Codex-Mail-Bridge) · [Support](support.md) · [Privacy](privacy.md) · [Terms](terms.md)
-
-[Current local review](LOCAL_REVIEW.md) · [Historical contract review](DESIGN_REVIEW.md) · [Original-file support and limits](ATTACHMENT_SUPPORT.md)
-
-[Local CLI contract](CLI.md) · [Historical submission notes](SUBMISSION.md)
+- [Install and update](../INSTALL.md)
+- [CLI contract](CLI.md)
+- [Thunderbird compatibility](THUNDERBIRD_COMPATIBILITY.md)
+- [Research workflows](AGENT_WORKFLOWS.md)
+- [Original attachments](ATTACHMENT_SUPPORT.md)
+- [Candidate validation](RELEASE_VALIDATION.md)
+- [Privacy](privacy.md), [terms](terms.md) and [support](support.md)
